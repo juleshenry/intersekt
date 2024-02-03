@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>Intersection Calculator</title>
-    <script src="intersekt.js"></script>
 </head>
 <body>
     <h1>Intersection Calculator</h1>
@@ -18,7 +17,8 @@
     <h2>Result:</h2>
     <div id="result"></div>
 
-    <script>
+    <script type="module">
+        import { intersekt } from './intersekt.js';
         function calculateIntersection() {
             var list1 = document.getElementById("list1").value;
             var list2 = document.getElementById("list2").value;
@@ -27,7 +27,8 @@
             var intersection = intersekt(list1, list2);
 
             // Display the result on the screen
-            document.getElementById("result").innerHTML = intersection;
+            
+            document.getElementById("result").innerHTML = intersection + ' !';
         }
     </script>
 </body>
