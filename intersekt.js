@@ -4,24 +4,15 @@ function isInside(p, [a, b]) {
 
 function getEdges(polygon) {
     let edges = [];
-
     for (let i = 0; i < polygon.length; i++) {
         let edge = [polygon[(i + polygon.length - 1) % polygon.length], polygon[i]];
-
         edges.push(edge);
     }
 
     return edges;
 }
 
-/**
- * Calcola il punto di intersezione di due linee
- *
- * @see {@link https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line|Wikipedia}
- * @param {Array} line0
- * @param {Array} line1
- * @returns {Array|Boolean}
- */
+// Calcola l'intersezione tra due linee
 function lineIntersection(line0, line1) {
     const
         [x1, y1] = line0[0],
@@ -46,21 +37,15 @@ function lineIntersection(line0, line1) {
     return [x, y];
 }
 
-/**
- * 
- * 
- * @see {@link https://en.wikipedia.org/wiki/Sutherland%E2%80%93Hodgman_algorithm|Sutherland–Hodgman algorithm}
- * @param {any} clipPolygon 
- * @param {any} subjectPolygon 
- * @returns 
- */
-export default function (clipPolygon, subjectPolygon) {
+function intersekt(clipPolygon, subjectPolygon) {
     let result = subjectPolygon;
+    console.log(getEdges(clipPolygon),'edges');
+    console.log(getEdges(subjectPolygon),'edges');
     getEdges(clipPolygon).forEach((clipEdge) => {
         let pointList = result;
         result = [];
-
         getEdges(pointList).forEach((pointEdge) => {
+            console.log(pointEdge, clipEdge);
             if (isInside(pointEdge[1], clipEdge)) {
                 if (!isInside(pointEdge[0], clipEdge)) {
                     result.push(lineIntersection(pointEdge, clipEdge));
@@ -71,6 +56,32 @@ export default function (clipPolygon, subjectPolygon) {
             }
         });
     });
-
+    console.log(result);
     return result;
 }
+
+function calculatePolygonArea(vertices) {
+    const n = vertices.length;
+    let area = 0;
+  
+    for (let i = 0; i < n - 1; i++) {
+      area += (vertices[i][0] * vertices[i + 1][1]) - (vertices[i + 1][0] * vertices[i][1]);
+    }
+  
+    // Add last term
+    area += (vertices[n - 1][0] * vertices[0][1]) - (vertices[0][0] * vertices[n - 1][1]);
+  
+    // Take the absolute value and divide by 2
+    area = Math.abs(area) / 2;
+  
+    return area;
+  }
+  
+  // Example usage:
+  const polygonVertices = [
+    [0, 0],
+    [0, 4],
+    [4, 4],
+    [4, 0]
+  ];
+  

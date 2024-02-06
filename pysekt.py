@@ -149,7 +149,6 @@ class PolygonClipper:
         final_polygon = subject_polygon.copy()
         
         for i in range(len(clipping_polygon)):
-            
             # stores the vertices of the next iteration of the clipping procedure
             next_polygon = final_polygon.copy()
             
@@ -163,7 +162,6 @@ class PolygonClipper:
             c_edge_end = clipping_polygon[i]
             
             for j in range(len(next_polygon)):
-                
                 # these two vertices define a line segment (edge) in the subject
                 # polygon
                 s_edge_start = next_polygon[j - 1]
@@ -189,7 +187,6 @@ class PolygonClipper:
         return clipped_polygon
 
 if __name__ == '__main__':
-    
     # some test polygons
     
     clip = PolygonClipper()
