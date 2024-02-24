@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Function Timing Comparison</title>
+    <script src="intersekt.js"></script>
+    <script>
+        let ciel = 100000;
+        function legacyApi() {
+            console.log('Called legacy API, ', ciel, ' times.');
+            for (let i = 0; i < ciel; i++) {
+                i + i;
+            }
+        }
+        function wasmCall() {
+            console.log('Called Wasm API');
+            (async () => {
+                // Fetch the WebAssembly module
+                const response = await fetch('hello-world-add.wasm');
+                const bytes = await response.arrayBuffer();
+                const { instance } = await WebAssembly.instantiate(bytes);
+                const addTwo = instance.exports.add;
+                let o = 0
+                for (let i = 0; i < ciel; i++) {
+                    o = addTwo(i, i) % 10;
+                }
+            })();
+        }
+        function compareTiming() {
+            var startTime = performance.now();
+            legacyApi();
+            var function1Time = performance.now() - startTime;
+            startTime = performance.now();
+            wasmCall();
+            var function2Time = performance.now() - startTime;
+            var result = "<p>Legacy sssAPI: " + function1Time + " milliseconds.</p><p>WASM Call: " + function2Time + " milliseconds.</p>";
+            document.getElementById("timingResult").innerHTML = result;
+        }
+        
+        function compareIntersekt() {
+            var startTime = performance.now();
+            let a=[[0,0],[1,1],[1,0],[0,0]].slice(0, -1),
+                b=[[0,0],[.5,.5],[.5,0],[0,0]].slice(0, -1);
+            
+            let i = intersekt(b,a);
+            console.log(i,'!')
+            // var function1Time = performance.now() - startTime;
+            // startTime = performance.now();
+            // intersektWasm();
+            // var function2Time = performance.now() - startTime;
+            // var result = "<p>Legacy API: " + function1Time + " ms.</p><p>WASM Call: " + function2Time + " ms.</p>";
+            // document.getElementById("timingResult").innerHTML = result;
+        }
+    </script>
+</head>
+<body>
+    <button onclick=compareIntersekt()>Intersekt</button>
+    <button onclick=compareTiming()>Compare Timing For Real</button>   
+    <p id="timingResult"></p>
+    <p>한국대중음악명반 노브레인 (NoBrain) 1집 대조선 펑크 노브레인 청년폭도맹진가</p>
+</body>
+</html>
