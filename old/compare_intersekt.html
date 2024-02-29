@@ -4,12 +4,13 @@
     <title>Function Timing Comparison</title>
     <script src="intersekt.js"></script>
     <script>
-        let ciel = 1000000;
-        
+        let ciel = 10000000;
+
         function legacyApi() {
             console.log('Called legacy API, ', ciel, ' times.');
+            let o = 0
             for (let i = 0; i < ciel; i++) {
-                i + i;
+                i + 1 - i;
             }
         }
         function wasmCall() {
