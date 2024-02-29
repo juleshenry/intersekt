@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>Function Timing Comparison</title>
-    <script src="wintersekt.js"></script>
+    <script type="module" src="wintersekt.js"></script>
     <script>
         let ciel = 10000000;
         function legacyApi() {
@@ -46,14 +46,14 @@
             var startTime = performance.now();
             let a=[[0,0],[1,1],[1,0],[0,0]].slice(0, -1),
                 b=[[0,0],[.5,.5],[.5,0],[0,0]].slice(0, -1);
-            let i = intersekt(b,a);
+            let i = wintersekt(b,a);
             console.log(i,'!')
         }
     </script>
 </head>
 <body>
     <h2>한국대중음악명반 노브레인 (NoBrain) 1집 대조선 펑크 노브레인 청년폭도맹진가</h2>
-    <button onclick=compareIntersekt()>Intersekt</button>
+    <button onclick=compareIntersekt()>Wintersekt</button>
     <!-- <button onclick=compareTiming()>Compare Timing For Real</button>    -->
     <p id="timingResult"></p>
 </body>
