@@ -8,7 +8,7 @@ xyz = [[[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]]
 a = Feature(geometry={"coordinates": xyz, "type": "Polygon",})
 b = Feature(geometry={"coordinates": xyz, "type": "Polygon",})
 inter = intersect([a, b])
-print('Geo Inter: ',inter)
+print("Geo Inter: ", inter)
 # print(area(inter))
 
 clip = PolygonClipper()
@@ -19,5 +19,5 @@ inter = inter.tolist()
 
 c_inter = Feature(geometry={"coordinates": [inter], "type": "Polygon"})
 print(c_inter)
-print('Polygon Inter: ', c_inter)
+print("Polygon Inter: ", c_inter)
 # print(area(c_inter))

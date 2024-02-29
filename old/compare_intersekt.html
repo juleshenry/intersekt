@@ -4,7 +4,8 @@
     <title>Function Timing Comparison</title>
     <script src="intersekt.js"></script>
     <script>
-        let ciel = 100000;
+        let ciel = 1000000;
+        
         function legacyApi() {
             console.log('Called legacy API, ', ciel, ' times.');
             for (let i = 0; i < ciel; i++) {
@@ -28,11 +29,16 @@
         function compareTiming() {
             var startTime = performance.now();
             legacyApi();
-            var function1Time = performance.now() - startTime;
+            var legacyApiTime = performance.now() - startTime;
+
             startTime = performance.now();
             wasmCall();
-            var function2Time = performance.now() - startTime;
-            var result = "<p>Legacy sssAPI: " + function1Time + " milliseconds.</p><p>WASM Call: " + function2Time + " milliseconds.</p>";
+            var wasmCallTime = performance.now() - startTime;
+            
+            let result = "<p>Calling an API: ";
+            result += legacyApiTime.toFixed(4);
+            result += " ms</p><p>WASM Call: ";
+            result += wasmCallTime.toFixed(4) + " ns.</p>";
             document.getElementById("timingResult").innerHTML = result;
         }
         
@@ -53,9 +59,9 @@
     </script>
 </head>
 <body>
+    <h2>한국대중음악명반 노브레인 (NoBrain) 1집 대조선 펑크 노브레인 청년폭도맹진가</h2>
     <button onclick=compareIntersekt()>Intersekt</button>
     <button onclick=compareTiming()>Compare Timing For Real</button>   
     <p id="timingResult"></p>
-    <p>한국대중음악명반 노브레인 (NoBrain) 1집 대조선 펑크 노브레인 청년폭도맹진가</p>
 </body>
 </html>
