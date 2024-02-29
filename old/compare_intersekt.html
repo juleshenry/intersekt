@@ -2,10 +2,9 @@
 <html>
 <head>
     <title>Function Timing Comparison</title>
-    <script src="intersekt.js"></script>
+    <script src="wintersekt.js"></script>
     <script>
         let ciel = 10000000;
-
         function legacyApi() {
             console.log('Called legacy API, ', ciel, ' times.');
             let o = 0
@@ -47,22 +46,15 @@
             var startTime = performance.now();
             let a=[[0,0],[1,1],[1,0],[0,0]].slice(0, -1),
                 b=[[0,0],[.5,.5],[.5,0],[0,0]].slice(0, -1);
-            
             let i = intersekt(b,a);
             console.log(i,'!')
-            // var function1Time = performance.now() - startTime;
-            // startTime = performance.now();
-            // intersektWasm();
-            // var function2Time = performance.now() - startTime;
-            // var result = "<p>Legacy API: " + function1Time + " ms.</p><p>WASM Call: " + function2Time + " ms.</p>";
-            // document.getElementById("timingResult").innerHTML = result;
         }
     </script>
 </head>
 <body>
     <h2>한국대중음악명반 노브레인 (NoBrain) 1집 대조선 펑크 노브레인 청년폭도맹진가</h2>
     <button onclick=compareIntersekt()>Intersekt</button>
-    <button onclick=compareTiming()>Compare Timing For Real</button>   
+    <!-- <button onclick=compareTiming()>Compare Timing For Real</button>    -->
     <p id="timingResult"></p>
 </body>
 </html>
