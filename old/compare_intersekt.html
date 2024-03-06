@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>Function Timing Comparison</title>
-    <script type="module" src="wintersekt.js"></script>
+    <script src="wintersekt.js"></script>    
     <script>
         let ciel = 10000000;
         function legacyApi() {
@@ -27,10 +27,12 @@
             })();
         }
         function compareTiming() {
-            var startTime = performance.now();
+            // Call the legacy API and measure the time it takes
+            let startTime = performance.now();
             legacyApi();
             var legacyApiTime = performance.now() - startTime;
 
+            // Call the WASM API and measure the time it takes
             startTime = performance.now();
             wasmCall();
             var wasmCallTime = performance.now() - startTime;
@@ -41,20 +43,20 @@
             result += wasmCallTime.toFixed(4) + " ns.</p>";
             document.getElementById("timingResult").innerHTML = result;
         }
-        
-        function compareIntersekt() {
+        function scompareIntersekt() {
             var startTime = performance.now();
             let a=[[0,0],[1,1],[1,0],[0,0]].slice(0, -1),
                 b=[[0,0],[.5,.5],[.5,0],[0,0]].slice(0, -1);
-            let i = wintersekt(b,a);
+            
+            let i = winning(b,a);
             console.log(i,'!')
         }
+        function whee() {console.log('whee!')};
     </script>
 </head>
 <body>
-    <h2>한국대중음악명반 노브레인 (NoBrain) 1집 대조선 펑크 노브레인 청년폭도맹진가</h2>
-    <button onclick=compareIntersekt()>Wintersekt</button>
-    <!-- <button onclick=compareTiming()>Compare Timing For Real</button>    -->
+    <h1>Function Timing Comparison</h1>
+    <h2>compare_intersekt.html</h2>
+    <button id="winterbutton" onclick="whee()">Wintersekt</button>
+    <!-- <button onclick=compareTiming()>Compare Timing For Real</button> -->
     <p id="timingResult"></p>
-</body>
-</html>

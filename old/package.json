@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@turf/intersect": "^6.5.0",
     "geojson": "^0.5.0",
     "turf": "^3.0.14"
   }
