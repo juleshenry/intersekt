@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WASM Mult: Timing Comparison</title>
+    <script>
+        const ciel = 100000000;
+
+        function sleep(delay) {
+            var start = new Date().getTime();
+            while (new Date().getTime() < start + delay);
+        }
+        function legacyApi() {
+            console.log('Called legacy API, ', ciel, ' times.');
+            for (let i = 0; i < ciel; i++) {
+                j = i + i;
+                if (!j%(ciel/10)) {console.log(j)}; 
+            }
+        }
+
+        function wasmCall() {
+            console.log('Called Wasm API, ', ciel, ' times.');
+            (async () => {
+                // Fetch the WebAssembly module
+                const response = await fetch('hwm.wasm');
+                const bytes = await response.arrayBuffer();
+                const { instance } = await WebAssembly.instantiate(bytes);
+                const multTwo = instance.exports.mult;
+                for (let i = 0; i < ciel; i++) {
+                    multTwo(i, i);
+                }
+            })();
+            
+        }
+        
+        function compareTiming() {
+            var startTime = performance.now();
+            legacyApi();
+            var function1Time = performance.now() - startTime;
+
+            startTime = performance.now();
+            wasmCall();
+            var function2Time = performance.now() - startTime;
+
+            var result = "<p>Legacy API: " + function1Time + " milliseconds.</p><p>WASM Call: " + function2Time + " milliseconds.</p>";
+            document.getElementById("timingResult").innerHTML = result;
+        }
+    </script>
+</head>
+<body>
+    <button onclick="compareTiming()">Compare Timing</button>
+    <p id="timingResult"></p>
+</body>
+</html>
