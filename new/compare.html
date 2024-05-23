@@ -13,7 +13,7 @@
             console.log('Called legacy API, ', ciel, ' times.');
             for (let i = 0; i < ciel; i++) {
                 j = i + i;
-                if (!j%(ciel/10)) {console.log(j)}; 
+                if (!(i%(ciel/10))) {console.log('$',i, ' times done')}; 
             }
         }
 
