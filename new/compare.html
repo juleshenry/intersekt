@@ -12,7 +12,7 @@
         function legacyApi() {
             console.log('Called legacy API, ', ciel, ' times.');
             for (let i = 0; i < ciel; i++) {
-                j = i + i;
+                j = i * i;
                 if (!(i%(ciel/10))) {console.log('$',i, ' times done')}; 
             }
         }
@@ -26,12 +26,26 @@
                 const { instance } = await WebAssembly.instantiate(bytes);
                 const multTwo = instance.exports.mult;
                 for (let i = 0; i < ciel; i++) {
-                    multTwo(i, i);
+                    j = multTwo(i, i);
+                    if (!(i%(ciel/10))) {console.log('$',i, ' times done')}; 
                 }
             })();
-            
         }
-        
+        function karatWasmCall() {
+            console.log('Called Wasm API, ', ciel, ' times.');
+            (async () => {
+                // Fetch the WebAssembly module
+                const response = await fetch('../karatsuba/mykarat.wasm');
+                const bytes = await response.arrayBuffer();
+                const { instance } = await WebAssembly.instantiate(bytes);
+                const karatTwo = instance.exports.karat;
+                for (let i = 0; i < ciel; i++) {
+                    j = karatTwo(i, i);
+                    if (!(i%(ciel/10))) {console.log('$',i, ' times done')}; 
+                }
+            })();
+        }
+
         function compareTiming() {
             var startTime = performance.now();
             legacyApi();
@@ -41,8 +55,15 @@
             wasmCall();
             var function2Time = performance.now() - startTime;
 
+            startTime = performance.now();
+            karatWasmCall();
+            var function3Time = performance.now() - startTime;
+
+
             var result = "<p>Legacy API: " + function1Time + " milliseconds.</p><p>WASM Call: " + function2Time + " milliseconds.</p>";
             document.getElementById("timingResult").innerHTML = result;
+
+
         }
     </script>
 </head>
