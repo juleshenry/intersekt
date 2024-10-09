@@ -34,14 +34,14 @@ import time
 a, b = 3141592653589793238462643383279502884197169399375105820974944592, 2718281828459045235360287471352662497757247093699959574966967627
 n = 1000
 
-def time_mult_karat(n):
+def time_it(n):
     start = time.time()
-    zs = [karatsuba(a,b) for i in range(n)]
+    zs = [karatsuba(a,b) for _ in range(n)]
     end = time.time()
     print(f"Karat:\t time taken for {n} multiplications: {end - start} seconds")
     return zs
 
-def time_mult_normal(n):
+def time_it(n):
     start = time.time()
     zs = [a*b for i in range(n)]
     end = time.time()
