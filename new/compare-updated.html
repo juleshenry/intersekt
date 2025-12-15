@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WASM Mult: Timing Comparison</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #timingResult {
+            background-color: white;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+    <script>
+        const ciel = 10000;
+
+        function sleep(delay) {
+            var start = new Date().getTime();
+            while (new Date().getTime() < start + delay);
+        }
+        
+        function legacyApi() {
+            console.log('Called legacy API, ', ciel, ' times.');
+            for (let i = 0; i < ciel; i++) {
+                j = i * i;
+                if (!(i%(ciel/10))) {console.log('$JavaScript',i, ' times done')}; 
+            }
+        }
+
+        async function wasmCall() {
+            console.log('Called Wasm API, ', ciel, ' times.');
+            // Fetch the WebAssembly module
+            const response = await fetch('hwm.wasm');
+            const bytes = await response.arrayBuffer();
+            const { instance } = await WebAssembly.instantiate(bytes);
+            const multTwo = instance.exports.mult;
+            for (let i = 0; i < ciel; i++) {
+                j = multTwo(i, i);
+                if (!(i%(ciel/10))) {console.log('$Vanilla Wasm:',i, ' times done')}; 
+            }
+        }
+        
+        async function karatWasmCall() {
+            console.log('Called Karat Wasm API, ', ciel, ' times.');
+            // Fetch the Karatsuba WebAssembly module
+            const response = await fetch('../karatsuba/karatsuba.wasm');
+            const bytes = await response.arrayBuffer();
+            const { instance } = await WebAssembly.instantiate(bytes);
+            const karatTwo = instance.exports.karat;
+            for (let i = 0; i < ciel; i++) {
+                j = karatTwo(i, i);
+                if (!(i%(ciel/10))) {console.log('$Karatsuba Wasm:',i, ' times done')}; 
+            }
+        }
+
+        async function compareTiming() {
+            var startTime = performance.now();
+            legacyApi();
+            var function1Time = performance.now() - startTime;
+            
+            startTime = performance.now();
+            await wasmCall();
+            var function2Time = performance.now() - startTime;
+            
+            startTime = performance.now();
+            await karatWasmCall();
+            var function3Time = performance.now() - startTime;
+
+            var result = ("<p><strong>Legacy JavaScript API:</strong> " + function1Time.toFixed(3) + " milliseconds.</p>" + 
+                "<p><strong>WASM Mult Call:</strong> " + function2Time.toFixed(3) + " milliseconds.</p>" + 
+                "<p><strong>Karatsuba WASM Call:</strong> " + function3Time.toFixed(3) + " milliseconds.</p>"
+             )
+            document.getElementById("timingResult").innerHTML = result;
+        }
+    </script>
+</head>
+<body>
+    <h1>WASM Multiplication Timing Comparison</h1>
+    <p>This test compares the performance of JavaScript multiplication, standard WASM multiplication, 
+       and Karatsuba algorithm in WASM for <strong>10,000</strong> square operations (i × i).</p>
+    <button onclick="compareTiming()">Compare Timing</button>
+    <div id="timingResult"></div>
+</body>
+</html>
