@@ -22,7 +22,7 @@ Expected output:
 ✓ One times one: 1 × 1 = 1
 ✓ Single digit multiplication: 5 × 7 = 35
 ...
-Results: 9 passed, 0 failed
+Results: 10 passed, 0 failed
 
 2. Performance Tests:
 ...

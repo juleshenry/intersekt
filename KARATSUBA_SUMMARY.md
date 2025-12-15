@@ -28,7 +28,7 @@ Multiple testing approaches to measure performance and correctness:
 #### Command-Line Testing
 - **karatsuba/test-node.js**: Automated Node.js test script
   - Runs without browser for CI/CD integration
-  - Validates correctness with 9 test cases
+  - Validates correctness with 10 test cases
   - Performance benchmarking with precise timing
   - Detailed analysis and conclusions
 

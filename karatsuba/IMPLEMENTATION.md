@@ -75,7 +75,7 @@ node test-node.js
 ```
 
 This will:
-- Verify correctness with 9 test cases
+- Verify correctness with 10 test cases
 - Compare performance between JavaScript, WASM, and Karatsuba
 - Display detailed timing analysis
 
