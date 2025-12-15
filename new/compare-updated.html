@@ -42,7 +42,7 @@
         function legacyApi() {
             console.log('Called legacy API, ', ciel, ' times.');
             for (let i = 0; i < ciel; i++) {
-                j = i * i;
+                let j = i * i;
                 if (!(i%(ciel/10))) {console.log('$JavaScript',i, ' times done')}; 
             }
         }
@@ -55,7 +55,7 @@
             const { instance } = await WebAssembly.instantiate(bytes);
             const multTwo = instance.exports.mult;
             for (let i = 0; i < ciel; i++) {
-                j = multTwo(i, i);
+                let j = multTwo(i, i);
                 if (!(i%(ciel/10))) {console.log('$Vanilla Wasm:',i, ' times done')}; 
             }
         }
@@ -70,7 +70,7 @@
             const { instance } = await WebAssembly.instantiate(bytes);
             const karatTwo = instance.exports.karat;
             for (let i = 0; i < ciel; i++) {
-                j = karatTwo(i, i);
+                let j = karatTwo(i, i);
                 if (!(i%(ciel/10))) {console.log('$Karatsuba Wasm:',i, ' times done')}; 
             }
         }

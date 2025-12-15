@@ -206,7 +206,7 @@
                 { name: 'Medium (10-99)', range: [10, 99] },
                 { name: 'Large (100-999)', range: [100, 999] },
                 { name: 'Very Large (1000-9999)', range: [1000, 9999] },
-                { name: 'Huge (10000-65535)', range: [10000, 65535] }
+                { name: 'Huge (10000-46340)', range: [10000, 46340] }  // Max to avoid i32 overflow
             ];
 
             let resultsHtml = '<h3>Performance Results (average of ' + iterations + ' operations):</h3>';
@@ -288,7 +288,7 @@
                 { a: 1234, b: 5678, desc: 'Four digits' },
                 { a: 12345, b: 67890, desc: 'Five digits' },
                 { a: 9999, b: 9999, desc: 'Max four digits' },
-                { a: 65535, b: 65535, desc: 'Max 16-bit (overflow test)' }
+                { a: 46340, b: 46340, desc: 'Near i32 max (no overflow)' }
             ];
 
             const iterations = 100000;
