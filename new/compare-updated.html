@@ -63,7 +63,9 @@
         async function karatWasmCall() {
             console.log('Called Karat Wasm API, ', ciel, ' times.');
             // Fetch the Karatsuba WebAssembly module
-            const response = await fetch('../karatsuba/karatsuba.wasm');
+            // Note: Path is relative to this HTML file's location
+            const karatWasmPath = '../karatsuba/karatsuba.wasm';
+            const response = await fetch(karatWasmPath);
             const bytes = await response.arrayBuffer();
             const { instance } = await WebAssembly.instantiate(bytes);
             const karatTwo = instance.exports.karat;

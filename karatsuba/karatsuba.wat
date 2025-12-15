@@ -23,7 +23,7 @@
     (local.set $n (local.get $num))
     (local.set $count (i32.const 0))
     
-    ;; Handle zero case
+    ;; Handle zero case: zero has 1 digit in base 10
     (if (i32.eqz (local.get $n))
       (then
         (return (i32.const 1))

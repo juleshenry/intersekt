@@ -136,6 +136,7 @@
         }
 
         // Test cases for correctness
+        // Note: i32 max is 2,147,483,647. Values exceeding this will overflow.
         const testCases = [
             { a: 0, b: 0, expected: 0 },
             { a: 1, b: 0, expected: 0 },
@@ -146,7 +147,7 @@
             { a: 1234, b: 5678, expected: 7006652 },
             { a: 9999, b: 9999, expected: 99980001 },
             { a: 12345, b: 67890, expected: 838102050 },
-            { a: 99999, b: 99999, expected: 9999800001 },
+            { a: 46340, b: 46340, expected: 2147395600 },  // Close to i32 max without overflow
         ];
 
         function runCorrectnessTests() {

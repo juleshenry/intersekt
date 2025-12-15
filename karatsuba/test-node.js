@@ -11,7 +11,8 @@ async function testKaratsuba() {
 
     console.log('=== Karatsuba Algorithm Test Suite ===\n');
 
-    // Test cases: [a, b, expected]
+    // Test cases: [a, b, expected, description]
+    // Note: i32 max is 2,147,483,647. Test cases must not overflow.
     const testCases = [
         [0, 0, 0, 'Zero multiplication'],
         [1, 0, 0, 'Multiplication by zero'],
@@ -22,6 +23,7 @@ async function testKaratsuba() {
         [1234, 5678, 7006652, 'Four digit multiplication'],
         [9999, 9999, 99980001, 'Four digit max'],
         [12345, 67890, 838102050, 'Five digit multiplication'],
+        [46340, 46340, 2147395600, 'Near i32 max without overflow'],
     ];
 
     console.log('1. Correctness Tests:\n');
