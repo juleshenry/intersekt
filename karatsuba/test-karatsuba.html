@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Karatsuba Algorithm Performance Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 30px;
+        }
+        .test-section {
+            background-color: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .results {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+            font-family: monospace;
+        }
+        .pass {
+            color: green;
+            font-weight: bold;
+        }
+        .fail {
+            color: red;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .winner {
+            background-color: #d4edda !important;
+            font-weight: bold;
+        }
+        #status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background-color: #e7f3ff;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Karatsuba Algorithm Performance Test in WebAssembly</h1>
+    
+    <div id="status">Loading WebAssembly modules...</div>
+    
+    <div class="test-section">
+        <h2>1. Correctness Tests</h2>
+        <button onclick="runCorrectnessTests()" id="correctnessBtn">Run Correctness Tests</button>
+        <div id="correctnessResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Performance Comparison</h2>
+        <button onclick="runPerformanceTests()" id="performanceBtn">Run Performance Tests</button>
+        <div id="performanceResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Detailed Analysis</h2>
+        <button onclick="runDetailedAnalysis()" id="detailedBtn">Run Detailed Analysis</button>
+        <div id="detailedResults"></div>
+    </div>
+
+    <script>
+        let wasmModule = null;
+        let multFunc = null;
+        let karatFunc = null;
+
+        // Load WASM module
+        async function loadWasm() {
+            try {
+                const response = await fetch('karatsuba.wasm');
+                const bytes = await response.arrayBuffer();
+                const { instance } = await WebAssembly.instantiate(bytes);
+                wasmModule = instance;
+                multFunc = instance.exports.mult;
+                karatFunc = instance.exports.karat;
+                document.getElementById('status').innerHTML = '✓ WebAssembly modules loaded successfully!';
+                document.getElementById('status').style.backgroundColor = '#d4edda';
+                document.getElementById('status').style.borderLeftColor = '#28a745';
+            } catch (error) {
+                document.getElementById('status').innerHTML = '✗ Error loading WASM: ' + error.message;
+                document.getElementById('status').style.backgroundColor = '#f8d7da';
+                document.getElementById('status').style.borderLeftColor = '#dc3545';
+            }
+        }
+
+        // Test cases for correctness
+        // Note: i32 max is 2,147,483,647. Values exceeding this will overflow.
+        const testCases = [
+            { a: 0, b: 0, expected: 0 },
+            { a: 1, b: 0, expected: 0 },
+            { a: 1, b: 1, expected: 1 },
+            { a: 5, b: 7, expected: 35 },
+            { a: 12, b: 34, expected: 408 },
+            { a: 123, b: 456, expected: 56088 },
+            { a: 1234, b: 5678, expected: 7006652 },
+            { a: 9999, b: 9999, expected: 99980001 },
+            { a: 12345, b: 67890, expected: 838102050 },
+            { a: 46340, b: 46340, expected: 2147395600 },  // Close to i32 max without overflow
+        ];
+
+        function runCorrectnessTests() {
+            if (!wasmModule) {
+                alert('WASM module not loaded yet!');
+                return;
+            }
+
+            let resultsHtml = '<h3>Test Results:</h3>';
+            let passed = 0;
+            let failed = 0;
+
+            resultsHtml += '<table><tr><th>Test</th><th>Input</th><th>Expected</th><th>JS Result</th><th>WASM Mult</th><th>Karatsuba</th><th>Status</th></tr>';
+
+            testCases.forEach((test, index) => {
+                const jsResult = test.a * test.b;
+                const wasmResult = multFunc(test.a, test.b);
+                const karatResult = karatFunc(test.a, test.b);
+                
+                const allCorrect = (jsResult === test.expected && 
+                                   wasmResult === test.expected && 
+                                   karatResult === test.expected);
+                
+                if (allCorrect) {
+                    passed++;
+                } else {
+                    failed++;
+                }
+
+                resultsHtml += `<tr>
+                    <td>Test ${index + 1}</td>
+                    <td>${test.a} × ${test.b}</td>
+                    <td>${test.expected}</td>
+                    <td>${jsResult}</td>
+                    <td>${wasmResult}</td>
+                    <td>${karatResult}</td>
+                    <td class="${allCorrect ? 'pass' : 'fail'}">${allCorrect ? 'PASS' : 'FAIL'}</td>
+                </tr>`;
+            });
+
+            resultsHtml += '</table>';
+            resultsHtml += `<div class="results"><strong>Summary:</strong> ${passed} passed, ${failed} failed out of ${testCases.length} tests</div>`;
+
+            document.getElementById('correctnessResults').innerHTML = resultsHtml;
+        }
+
+        function runPerformanceTests() {
+            if (!wasmModule) {
+                alert('WASM module not loaded yet!');
+                return;
+            }
+
+            const iterations = 1_000_000;
+            const testSizes = [
+                { name: 'Small (< 10)', range: [1, 9] },
+                { name: 'Medium (10-99)', range: [10, 99] },
+                { name: 'Large (100-999)', range: [100, 999] },
+                { name: 'Very Large (1000-9999)', range: [1000, 9999] },
+                { name: 'Huge (10000-46340)', range: [10000, 46340] }  // Max to avoid i32 overflow
+            ];
+
+            let resultsHtml = '<h3>Performance Results (average of ' + iterations + ' operations):</h3>';
+            resultsHtml += '<table><tr><th>Size Category</th><th>JavaScript (ms)</th><th>WASM Mult (ms)</th><th>Karatsuba (ms)</th><th>Fastest</th></tr>';
+
+            testSizes.forEach(size => {
+                const min = size.range[0];
+                const max = size.range[1];
+                
+                // Generate random test values
+                const testPairs = [];
+                for (let i = 0; i < iterations; i++) {
+                    const a = Math.floor(Math.random() * (max - min + 1)) + min;
+                    const b = Math.floor(Math.random() * (max - min + 1)) + min;
+                    testPairs.push([a, b]);
+                }
+
+                // Test JavaScript
+                let startTime = performance.now();
+                testPairs.forEach(([a, b]) => {
+                    const result = a * b;
+                });
+                const jsTime = performance.now() - startTime;
+
+                // Test WASM multiplication
+                startTime = performance.now();
+                testPairs.forEach(([a, b]) => {
+                    const result = multFunc(a, b);
+                });
+                const wasmTime = performance.now() - startTime;
+
+                // Test Karatsuba
+                startTime = performance.now();
+                testPairs.forEach(([a, b]) => {
+                    const result = karatFunc(a, b);
+                });
+                const karatTime = performance.now() - startTime;
+
+                // Determine winner
+                const times = [
+                    { name: 'JavaScript', time: jsTime },
+                    { name: 'WASM Mult', time: wasmTime },
+                    { name: 'Karatsuba', time: karatTime }
+                ];
+                const fastest = times.reduce((min, curr) => curr.time < min.time ? curr : min).name;
+
+                const jsClass = fastest === 'JavaScript' ? ' class="winner"' : '';
+                const wasmClass = fastest === 'WASM Mult' ? ' class="winner"' : '';
+                const karatClass = fastest === 'Karatsuba' ? ' class="winner"' : '';
+
+                resultsHtml += `<tr>
+                    <td>${size.name}</td>
+                    <td${jsClass}>${jsTime.toFixed(3)}</td>
+                    <td${wasmClass}>${wasmTime.toFixed(3)}</td>
+                    <td${karatClass}>${karatTime.toFixed(3)}</td>
+                    <td><strong>${fastest}</strong></td>
+                </tr>`;
+            });
+
+            resultsHtml += '</table>';
+            resultsHtml += '<div class="results"><strong>Note:</strong> Green highlighting indicates the fastest method for each size category.</div>';
+
+            document.getElementById('performanceResults').innerHTML = resultsHtml;
+        }
+
+        function runDetailedAnalysis() {
+            if (!wasmModule) {
+                alert('WASM module not loaded yet!');
+                return;
+            }
+
+            let resultsHtml = '<h3>Detailed Performance Analysis:</h3>';
+            resultsHtml += '<p>Testing specific number pairs to understand when Karatsuba is beneficial...</p>';
+
+            const specificTests = [
+                { a: 5, b: 7, desc: 'Single digits' },
+                { a: 12, b: 34, desc: 'Two digits' },
+                { a: 123, b: 456, desc: 'Three digits' },
+                { a: 1234, b: 5678, desc: 'Four digits' },
+                { a: 12345, b: 67890, desc: 'Five digits' },
+                { a: 9999, b: 9999, desc: 'Max four digits' },
+                { a: 46340, b: 46340, desc: 'Near i32 max (no overflow)' }
+            ];
+
+            const iterations = 1_000_000;
+
+            resultsHtml += '<table><tr><th>Test Case</th><th>Values</th><th>JS (ms)</th><th>WASM (ms)</th><th>Karatsuba (ms)</th><th>Speedup vs JS</th></tr>';
+
+            specificTests.forEach(test => {
+                // JavaScript
+                let startTime = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    const result = test.a * test.b;
+                }
+                const jsTime = performance.now() - startTime;
+
+                // WASM
+                startTime = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    const result = multFunc(test.a, test.b);
+                }
+                const wasmTime = performance.now() - startTime;
+
+                // Karatsuba
+                startTime = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    const result = karatFunc(test.a, test.b);
+                }
+                const karatTime = performance.now() - startTime;
+
+                const speedup = (jsTime / karatTime).toFixed(2);
+
+                resultsHtml += `<tr>
+                    <td>${test.desc}</td>
+                    <td>${test.a} × ${test.b}</td>
+                    <td>${jsTime.toFixed(3)}</td>
+                    <td>${wasmTime.toFixed(3)}</td>
+                    <td>${karatTime.toFixed(3)}</td>
+                    <td>${speedup}x</td>
+                </tr>`;
+            });
+
+            resultsHtml += '</table>';
+            
+            resultsHtml += '<div class="results">';
+            resultsHtml += '<strong>Key Findings:</strong><br>';
+            resultsHtml += '• The Karatsuba algorithm in WASM adds overhead for small numbers due to recursion.<br>';
+            resultsHtml += '• For i32 integers (max ~4.2 billion), the overhead typically outweighs benefits.<br>';
+            resultsHtml += '• Karatsuba shines with very large numbers (typically 1000+ digits) where recursive decomposition reduces complexity.<br>';
+            resultsHtml += '• For hardware-native integer sizes, built-in multiplication is usually faster.<br>';
+            resultsHtml += '• This implementation demonstrates the algorithm but would need bigint support for practical advantages.';
+            resultsHtml += '</div>';
+
+            document.getElementById('detailedResults').innerHTML = resultsHtml;
+        }
+
+        // Load WASM on page load
+        loadWasm();
+    </script>
+</body>
+</html>

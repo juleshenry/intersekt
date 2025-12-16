@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Function Timing Comparison</title>
+    <script src="wintersekt.js"></script>    
+    <script>
+        let ciel = 10000000;
+        function legacyApi() {
+            console.log('Called legacy API, ', ciel, ' times.');
+            let o = 0
+            for (let i = 0; i < ciel; i++) {
+                i + 1 - i;
+            }
+        }
+        function wasmCall() {
+            console.log('Called Wasm API');
+            (async () => {
+                // Fetch the WebAssembly module
+                const response = await fetch('hello-world-add.wasm');
+                const bytes = await response.arrayBuffer();
+                const { instance } = await WebAssembly.instantiate(bytes);
+                const addTwo = instance.exports.add;
+                let o = 0
+                for (let i = 0; i < ciel; i++) {
+                    o = addTwo(i, i) % 10;
+                }
+            })();
+        }
+        function compareTiming() {
+            // Call the legacy API and measure the time it takes
+            let startTime = performance.now();
+            legacyApi();
+            var legacyApiTime = performance.now() - startTime;
+
+            // Call the WASM API and measure the time it takes
+            startTime = performance.now();
+            wasmCall();
+            var wasmCallTime = performance.now() - startTime;
+            
+            let result = "<p>Calling an API: ";
+            result += legacyApiTime.toFixed(4);
+            result += " ms</p><p>WASM Call: ";
+            result += wasmCallTime.toFixed(4) + " ns.</p>";
+            document.getElementById("timingResult").innerHTML = result;
+        }
+        function scompareIntersekt() {
+            var startTime = performance.now();
+            let a=[[0,0],[1,1],[1,0],[0,0]].slice(0, -1),
+                b=[[0,0],[.5,.5],[.5,0],[0,0]].slice(0, -1);
+            
+            let i = winning(b,a);
+            console.log(i,'!')
+        }
+        function whee() {console.log('whee!')};
+    </script>
+</head>
+<body>
+    <h1>Function Timing Comparison</h1>
+    <h2>compare_intersekt.html</h2>
+    <button id="winterbutton" onclick="whee()">Wintersekt</button>
+    <!-- <button onclick=compareTiming()>Compare Timing For Real</button> -->
+    <p id="timingResult"></p>
