@@ -200,7 +200,7 @@
                 return;
             }
 
-            const iterations = 10000;
+            const iterations = 1_000_000;
             const testSizes = [
                 { name: 'Small (< 10)', range: [1, 9] },
                 { name: 'Medium (10-99)', range: [10, 99] },
@@ -291,7 +291,7 @@
                 { a: 46340, b: 46340, desc: 'Near i32 max (no overflow)' }
             ];
 
-            const iterations = 100000;
+            const iterations = 1_000_000;
 
             resultsHtml += '<table><tr><th>Test Case</th><th>Values</th><th>JS (ms)</th><th>WASM (ms)</th><th>Karatsuba (ms)</th><th>Speedup vs JS</th></tr>';
 
