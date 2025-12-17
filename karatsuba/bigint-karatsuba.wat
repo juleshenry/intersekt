@@ -497,6 +497,9 @@
     (local.set $z1 (call $bigint_karatsuba (local.get $sum_x) (local.get $sum_y)))
     
     ;; z1 = z1 - z2 - z0
+    ;; Mathematical property: (x_low + x_high) * (y_low + y_high) = x_low*y_low + x_low*y_high + x_high*y_low + x_high*y_high
+    ;; After subtracting z0 and z2, we get: z1 = x_low*y_high + x_high*y_low >= 0
+    ;; Therefore, subtraction order is always safe
     (local.set $z1 (call $bigint_sub (local.get $z1) (local.get $z2)))
     (local.set $z1 (call $bigint_sub (local.get $z1) (local.get $z0)))
     
@@ -563,5 +566,13 @@
   
   (func (export "bigint_karatsuba") (param i32 i32) (result i32)
     (call $bigint_karatsuba (local.get 0) (local.get 1))
+  )
+  
+  (func (export "bigint_cmp") (param i32 i32) (result i32)
+    (call $bigint_cmp (local.get 0) (local.get 1))
+  )
+  
+  (func (export "bigint_sub") (param i32 i32) (result i32)
+    (call $bigint_sub (local.get 0) (local.get 1))
   )
 )
