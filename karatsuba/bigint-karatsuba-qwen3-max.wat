@@ -409,6 +409,7 @@
     (local $result i32)
     (local $i i32)
     (local $final_result i32)
+    (local $result_len i32)
 
     (local.set $saved_heap_ptr (global.get $heap_ptr))
     
@@ -422,9 +423,22 @@
         )
       (then
         (local.set $result (call $bigint_mul_simple (local.get $x) (local.get $y)))
-        (local.set $final_result (call $bigint_copy (local.get $result)))
-        ;; Restore heap pointer (free entire region)
+        (local.set $result_len (call $bigint_len (local.get $result)))
+
+        ;; Rewind and materialize a stable result so callers do not read freed space
         (global.set $heap_ptr (local.get $saved_heap_ptr))
+        (local.set $final_result (call $alloc (local.get $result_len)))
+        (i32.store (local.get $final_result) (local.get $result_len))
+        (local.set $i (i32.const 0))
+        (block $copy_base
+          (loop $copy_base_continue
+            (br_if $copy_base (i32.ge_u (local.get $i) (local.get $result_len)))
+            (call $bigint_set_limb (local.get $final_result) (local.get $i)
+              (call $bigint_get_limb (local.get $result) (local.get $i)))
+            (local.set $i (i32.add (local.get $i) (i32.const 1)))
+            (br $copy_base_continue)
+          )
+        )
         (return (local.get $final_result))
       )
     )
@@ -529,12 +543,25 @@
     (local.set $result (call $bigint_add (local.get $z2) (local.get $z1)))
     (local.set $result (call $bigint_add (local.get $result) (local.get $z0)))
     
-    ;; Copy result before freeing region
-    (local.set $final_result (call $bigint_copy (local.get $result)))
-    
-    ;; Restore heap pointer (free entire region including intermediates)
+    (local.set $result_len (call $bigint_len (local.get $result)))
+
+    ;; Rewind and keep only the final result so callers do not see overlapped temporaries
     (global.set $heap_ptr (local.get $saved_heap_ptr))
+    (local.set $final_result (call $alloc (local.get $result_len)))
+    (i32.store (local.get $final_result) (local.get $result_len))
     
+    (local.set $i (i32.const 0))
+    (block $copy_final
+      (loop $copy_final_continue
+        (br_if $copy_final (i32.ge_u (local.get $i) (local.get $result_len)))
+        (call $bigint_set_limb (local.get $final_result) (local.get $i)
+          (call $bigint_get_limb (local.get $result) (local.get $i)))
+        (local.set $i (i32.add (local.get $i) (i32.const 1)))
+        (br $copy_final_continue)
+      )
+    )
+
+    (call $bigint_normalize (local.get $final_result))
     (local.get $final_result)
   )
   
