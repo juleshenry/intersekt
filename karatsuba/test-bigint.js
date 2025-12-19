@@ -3,7 +3,7 @@ const path = require('path');
 
 
 const ITERATIONS = 100;
-const NUM_DIGITS = 96;
+const NUM_DIGITS = 1e3;
 // Helper to create bigint from JavaScript BigInt using WASM functions
 function bigintToWasm(wasmInstance, value) {
     const { memory, bigint_from_limbs } = wasmInstance.exports;
@@ -155,10 +155,18 @@ async function testModule(name, filename, iterations) {
 async function runAllTests() {
     const modules = [
         { name: 'Original', filename: 'bigint-karatsuba.wasm' },
+        { name: 'Schoolbook', filename: 'bigint-schoolbook.wasm' },
+        { name: 'Schoolbook Redux', filename: 'bigint-schoolbook-redux.wasm' },
         { name: 'DeepSeek', filename: 'bigint-karatsuba-deepseek.wasm' },
         { name: 'Gemini3', filename: 'bigint-karatsuba-gemini3.wasm' },
         { name: 'Qwen3 Max', filename: 'bigint-karatsuba-qwen3-max.wasm' }
     ];
+
+    // Shuffle the modules array randomly
+    for (let i = modules.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [modules[i], modules[j]] = [modules[j], modules[i]];
+    }
 
     // Baseline JS Performance
     console.log(`\n==================================================`);
