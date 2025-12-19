@@ -18,7 +18,28 @@
 
   ;; --- UTILITIES ---
 
-  (func $bigint_len (param $ptr i32) (result i32) (i32.load (local.get $ptr)))
+  (func $reset_heap (export "reset_heap")
+    (global.set $heap_ptr (i32.const 0))
+  )
+
+  (func $bigint_from_limbs (export "bigint_from_limbs") (param $src i32) (result i32)
+    (local $len i32)
+    (local $dst i32)
+    (local.set $len (i32.load (local.get $src)))
+    (local.set $dst (call $alloc (local.get $len)))
+    (i32.store (local.get $dst) (local.get $len))
+    (memory.copy 
+      (i32.add (local.get $dst) (i32.const 4)) 
+      (i32.add (local.get $src) (i32.const 4)) 
+      (i32.shl (local.get $len) (i32.const 2)))
+    (local.get $dst)
+  )
+
+  (func $bigint_get_limb (export "bigint_get_limb") (param $ptr i32) (param $idx i32) (result i32)
+    (i32.load (i32.add (i32.add (local.get $ptr) (i32.const 4)) (i32.shl (local.get $idx) (i32.const 2))))
+  )
+
+  (func $bigint_len (export "bigint_len") (param $ptr i32) (result i32) (i32.load (local.get $ptr)))
 
   (func $bigint_normalize (param $ptr i32)
     (local $len i32)
@@ -131,6 +152,12 @@
     (local.set $res (call $alloc (i32.add (local.get $len_a) (local.get $len_b))))
     (i32.store (local.get $res) (i32.add (local.get $len_a) (local.get $len_b)))
     
+    ;; Zero out the result memory
+    (memory.fill 
+      (i32.add (local.get $res) (i32.const 4)) 
+      (i32.const 0) 
+      (i32.shl (i32.add (local.get $len_a) (local.get $len_b)) (i32.const 2)))
+    
     (loop $i_loop
       (if (i32.lt_u (local.get $i) (local.get $len_a))
         (then
@@ -164,7 +191,7 @@
 
   ;; --- KARATSUBA ---
 
-  (func $bigint_karatsuba (param $x i32) (param $y i32) (result i32)
+  (func $bigint_karatsuba (export "bigint_karatsuba") (param $x i32) (param $y i32) (result i32)
     (local $len_x i32) (local $len_y i32) (local $m i32)
     (local $x_low i32) (local $x_high i32) (local $y_low i32) (local $y_high i32)
     (local $z0 i32) (local $z1 i32) (local $z2 i32)
@@ -191,6 +218,14 @@
         (i32.add (local.get $x_low) (i32.const 4)) 
         (i32.add (local.get $x) (i32.const 4)) 
         (i32.shl (if (result i32) (i32.lt_u (local.get $len_x) (local.get $m)) (then (local.get $len_x)) (else (local.get $m))) (i32.const 2)))
+    (if (i32.lt_u (local.get $len_x) (local.get $m))
+        (then
+            (memory.fill 
+                (i32.add (i32.add (local.get $x_low) (i32.const 4)) (i32.shl (local.get $len_x) (i32.const 2)))
+                (i32.const 0)
+                (i32.shl (i32.sub (local.get $m) (local.get $len_x)) (i32.const 2)))
+        )
+    )
 
     (local.set $x_high (call $alloc (if (result i32) (i32.gt_u (local.get $len_x) (local.get $m)) (then (i32.sub (local.get $len_x) (local.get $m))) (else (i32.const 1)))))
     (if (i32.gt_u (local.get $len_x) (local.get $m))
@@ -205,6 +240,14 @@
     (local.set $y_low (call $alloc (local.get $m)))
     (i32.store (local.get $y_low) (local.get $m))
     (memory.copy (i32.add (local.get $y_low) (i32.const 4)) (i32.add (local.get $y) (i32.const 4)) (i32.shl (if (result i32) (i32.lt_u (local.get $len_y) (local.get $m)) (then (local.get $len_y)) (else (local.get $m))) (i32.const 2)))
+    (if (i32.lt_u (local.get $len_y) (local.get $m))
+        (then
+            (memory.fill 
+                (i32.add (i32.add (local.get $y_low) (i32.const 4)) (i32.shl (local.get $len_y) (i32.const 2)))
+                (i32.const 0)
+                (i32.shl (i32.sub (local.get $m) (local.get $len_y)) (i32.const 2)))
+        )
+    )
 
     (local.set $y_high (call $alloc (if (result i32) (i32.gt_u (local.get $len_y) (local.get $m)) (then (i32.sub (local.get $len_y) (local.get $m))) (else (i32.const 1)))))
     (if (i32.gt_u (local.get $len_y) (local.get $m))
@@ -219,20 +262,48 @@
     (local.set $z0 (call $bigint_karatsuba (local.get $x_low) (local.get $y_low)))
     (local.set $z2 (call $bigint_karatsuba (local.get $x_high) (local.get $y_high)))
     
-    ;; sx = x_low + x_high, sy = y_low + y_high (Temp allocs)
-    ;; z1 = (sx * sy) - z0 - z2
-    ;; To save space, we allocate sy and sx, call karatsuba, then we can reset pointers.
+    ;; sx = x_low + x_high
+    (local.set $sx (call $alloc (i32.add (local.get $m) (i32.const 1))))
+    (i32.store (local.get $sx) (local.get $m))
+    (memory.copy (i32.add (local.get $sx) (i32.const 4)) (i32.add (local.get $x_low) (i32.const 4)) (i32.shl (local.get $m) (i32.const 2)))
+    (call $add_at (local.get $sx) (local.get $x_high) (i32.const 0))
+
+    ;; sy = y_low + y_high
+    (local.set $sy (call $alloc (i32.add (local.get $m) (i32.const 1))))
+    (i32.store (local.get $sy) (local.get $m))
+    (memory.copy (i32.add (local.get $sy) (i32.const 4)) (i32.add (local.get $y_low) (i32.const 4)) (i32.shl (local.get $m) (i32.const 2)))
+    (call $add_at (local.get $sy) (local.get $y_high) (i32.const 0))
+
+    ;; z1 = sx * sy
+    (local.set $z1 (call $bigint_karatsuba (local.get $sx) (local.get $sy)))
+
+    ;; z1 = z1 - z0 - z2
+    (call $sub_in_place (local.get $z1) (local.get $z0))
+    (call $sub_in_place (local.get $z1) (local.get $z2))
+
+    ;; res = z0 + z1 << m + z2 << 2m
     (local.set $res (call $alloc (i32.add (local.get $len_x) (local.get $len_y))))
-    (i32.store (local.get $res) (i32.add (local.get $len_x) (local.get $len_y)))
-    
-    ;; Manual construction of z1
-    ;; (Omitted intermediate addition/subtraction for brevity, similar to your logic but using sub_in_place)
-    ;; Final result construction:
+    (memory.fill 
+      (i32.add (local.get $res) (i32.const 4)) 
+      (i32.const 0) 
+      (i32.shl (i32.add (local.get $len_x) (local.get $len_y)) (i32.const 2)))
+    (i32.store (local.get $res) (i32.const 0))
+
     (call $add_at (local.get $res) (local.get $z0) (i32.const 0))
+    (call $add_at (local.get $res) (local.get $z1) (local.get $m))
     (call $add_at (local.get $res) (local.get $z2) (i32.shl (local.get $m) (i32.const 1)))
-    ;; ... add z1 at offset m ...
 
     (call $bigint_normalize (local.get $res))
-    (local.get $res)
+    
+    ;; Copy result to stack_top to free intermediate memory
+    (local.set $len_x (call $bigint_len (local.get $res)))
+    (memory.copy 
+        (i32.add (local.get $stack_top) (i32.const 4))
+        (i32.add (local.get $res) (i32.const 4))
+        (i32.shl (local.get $len_x) (i32.const 2)))
+    (i32.store (local.get $stack_top) (local.get $len_x))
+    (global.set $heap_ptr (i32.add (local.get $stack_top) (i32.add (i32.const 4) (i32.shl (local.get $len_x) (i32.const 2)))))
+    
+    (local.get $stack_top)
   )
 )

@@ -1,6 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
+
+const ITERATIONS = 100;
+const NUM_DIGITS = 96;
 // Helper to create bigint from JavaScript BigInt using WASM functions
 function bigintToWasm(wasmInstance, value) {
     const { memory, bigint_from_limbs } = wasmInstance.exports;
@@ -42,7 +45,7 @@ function wasmToBigint(wasmInstance, ptr) {
     return result;
 }
 
-async function testModule(name, filename) {
+async function testModule(name, filename, iterations) {
     console.log(`\n==================================================`);
     console.log(`Testing Module: ${name} (${filename})`);
     console.log(`==================================================`);
@@ -117,10 +120,10 @@ async function testModule(name, filename) {
     
     let num1000Str = '';
     let num2000Str = '';
-    for (let i = 0; i < 1000; i++) {
+    for (let i = 0; i < NUM_DIGITS; i++) {
         num1000Str += String((i % 9) + 1);
     }
-    for (let i = 0; i < 1000; i++) {
+    for (let i = 0; i < NUM_DIGITS; i++) {
         num2000Str += String(((i + 5) % 9) + 1);
     }
     
@@ -129,16 +132,15 @@ async function testModule(name, filename) {
     
     // WASM Karatsuba multiplication
     const wasmStart = process.hrtime.bigint();
-    const wasmIterations = 100;
-    for (let i = 0; i < wasmIterations; i++) {
+    for (let i = 0; i < ITERATIONS; i++) {
         reset_heap();
         const p1 = bigintToWasm(instance, num1000);
         const p2 = bigintToWasm(instance, num2000);
         bigint_karatsuba(p1, p2);
     }
     const wasmTime = Number(process.hrtime.bigint() - wasmStart) / 1e6;
-    const avgTime = wasmTime / wasmIterations;
-    console.log(`  Total time (${wasmIterations} iterations): ${wasmTime.toFixed(3)} ms`);
+    const avgTime = wasmTime / ITERATIONS;
+    console.log(`  Total time (${ITERATIONS} iterations): ${wasmTime.toFixed(3)} ms`);
     console.log(`  Average per multiplication: ${avgTime.toFixed(6)} ms`);
 
     return {
@@ -165,17 +167,17 @@ async function runAllTests() {
     
     let num1000Str = '';
     let num2000Str = '';
-    for (let i = 0; i < 10000; i++) {
+    for (let i = 0; i < NUM_DIGITS; i++) {
         num1000Str += String((i % 9) + 1);
     }
-    for (let i = 0; i < 10000; i++) {
+    for (let i = 0; i < NUM_DIGITS; i++) {
         num2000Str += String(((i + 5) % 9) + 1);
     }
     const num1000 = BigInt(num1000Str);
     const num2000 = BigInt(num2000Str);
 
     const jsStart = process.hrtime.bigint();
-    const jsIterations = 100;
+    const jsIterations = ITERATIONS;
     for (let i = 0; i < jsIterations; i++) {
         const _ = num1000 * num2000;
     }
@@ -186,7 +188,7 @@ async function runAllTests() {
     const results = [];
     for (const mod of modules) {
         try {
-            const result = await testModule(mod.name, mod.filename);
+            const result = await testModule(mod.name, mod.filename, ITERATIONS);
             if (result) results.push(result);
         } catch (e) {
             console.error(`Error testing ${mod.name}:`, e.message);
