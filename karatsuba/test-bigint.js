@@ -3,7 +3,7 @@ const path = require('path');
 
 
 const ITERATIONS = 100;
-const NUM_DIGITS = 1e3;
+const NUM_DIGITS = 1000;
 // Helper to create bigint from JavaScript BigInt using WASM functions
 function bigintToWasm(wasmInstance, value) {
     const { memory, bigint_from_limbs } = wasmInstance.exports;

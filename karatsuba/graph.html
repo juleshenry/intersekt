@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BigInt WASM Graph (Power-of-Two Sizes)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 10px;
+    }
+    .panel {
+      background-color: white;
+      padding: 16px;
+      margin: 16px 0;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      background-color: #e7f3ff;
+      border-left: 4px solid #007bff;
+    }
+    a {
+      color: #007bff;
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>BigInt WASM Benchmark Graph</h1>
+  <div id="status">Running… (x-axis: 2^X bits, y-axis: runtime of 128 multiplications)</div>
+
+  <div class="panel">
+    <div id="chart">
+      <canvas id="canvas" width="1600" height="900" style="display:none"></canvas>
+      <img id="jpg" alt="Benchmark chart (JPG)" style="width:100%; height:auto; display:none" />
+      <div style="margin-top:10px">
+        <a id="download" href="#" download="bigint-wasm-benchmark.jpg" style="display:none">Download JPG</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="graph.js"></script>
+</body>
+</html>
