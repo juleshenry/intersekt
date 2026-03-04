@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BigInt WASM Multiplication Benchmark</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 10px;
+    }
+    .panel {
+      background-color: white;
+      padding: 16px;
+      margin: 16px 0;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      background-color: #e7f3ff;
+      border-left: 4px solid #007bff;
+    }
+    label {
+      display: inline-block;
+      margin-right: 12px;
+    }
+    input {
+      width: 120px;
+      padding: 6px 8px;
+      margin-left: 6px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      margin: 6px 0;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background-color: #0056b3; }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    pre {
+      background-color: #0b1020;
+      color: #e8e8e8;
+      padding: 12px;
+      border-radius: 6px;
+      overflow: auto;
+      line-height: 1.35;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+    }
+    .hint {
+      color: #555;
+      margin: 8px 0 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>BigInt WASM Multiplication Benchmark</h1>
+
+  <div id="status">Ready. Start a local HTTP server (recommended) and click Run.</div>
+
+  <div class="panel">
+    <h2>Parameters</h2>
+    <div>
+      <label>
+        num_digits
+        <input id="numDigits" type="number" min="1" step="1" value="1000" />
+      </label>
+      <label>
+        iterations
+        <input id="iterations" type="number" min="1" step="1" value="100" />
+      </label>
+    </div>
+    <button id="runBtn">Run All Tests</button>
+    <p class="hint">
+      Note: large values can freeze the tab. If WASM fails to load with CORS errors, run a local server (e.g. <code>python3 -m http.server</code>) and open this page via <code>http://localhost:8000/</code>.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h2>Output</h2>
+    <pre id="output"></pre>
+  </div>
+
+  <script>
+    const MODULES = [
+      { name: 'Original', filename: 'bigint-karatsuba.wasm' },
+      { name: 'Schoolbook', filename: 'bigint-schoolbook.wasm' },
+      { name: 'DeepSeek', filename: 'bigint-karatsuba-deepseek.wasm' },
+      { name: 'Gemini3', filename: 'bigint-karatsuba-gemini3.wasm' },
+      { name: 'Gemini3-1000', filename: 'bigint-karatsuba-gemini3-mem-1000.wasm' },
+      { name: 'Qwen3 Max', filename: 'bigint-karatsuba-qwen3-max.wasm' },
+    ];
+
+    function $(id) { return document.getElementById(id); }
+
+    function setStatus(text, kind = 'info') {
+      const el = $('status');
+      el.textContent = text;
+      if (kind === 'ok') {
+        el.style.backgroundColor = '#d4edda';
+        el.style.borderLeftColor = '#28a745';
+      } else if (kind === 'err') {
+        el.style.backgroundColor = '#f8d7da';
+        el.style.borderLeftColor = '#dc3545';
+      } else {
+        el.style.backgroundColor = '#e7f3ff';
+        el.style.borderLeftColor = '#007bff';
+      }
+    }
+
+    function log(line = '') {
+      const out = $('output');
+      out.textContent += line + '\n';
+      out.scrollTop = out.scrollHeight;
+    }
+
+    function clearLog() {
+      $('output').textContent = '';
+    }
+
+    function shuffleInPlace(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function makeDigitString(numDigits, phase = 0) {
+      let s = '';
+      for (let i = 0; i < numDigits; i++) {
+        const d = ((i + phase) % 9) + 1;
+        s += String(d);
+      }
+      return s;
+    }
+
+    function ensureScratch(memory, bytesNeeded) {
+      // Ensure memory has enough bytes; grow if needed.
+      const pageSize = 65536;
+      const curBytes = memory.buffer.byteLength;
+      if (curBytes < bytesNeeded + 64) {
+        const targetBytes = bytesNeeded + 64;
+        const pagesNeeded = Math.ceil((targetBytes - curBytes) / pageSize);
+        memory.grow(pagesNeeded);
+      }
+
+      // Place scratch at the end of memory to avoid clobbering heap (heap grows upward from 0).
+      const bufBytes = memory.buffer.byteLength;
+      let ptr = bufBytes - bytesNeeded;
+      ptr = ptr & ~3; // align to 4 bytes
+      if (ptr < 0) throw new Error('Unable to allocate scratch space');
+      return ptr;
+    }
+
+    function bigintToWasm(instance, value) {
+      const { memory, bigint_from_limbs } = instance.exports;
+      if (!memory || !bigint_from_limbs) {
+        throw new Error('WASM module missing required exports: memory, bigint_from_limbs');
+      }
+
+      // Convert BigInt to array of 32-bit limbs (little-endian)
+      const limbs = [];
+      let temp = value;
+      while (temp > 0n) {
+        limbs.push(Number(temp & 0xFFFFFFFFn));
+        temp >>= 32n;
+      }
+      if (limbs.length === 0) limbs.push(0);
+
+      // Layout expected by bigint_from_limbs: [len, limb0, limb1, ...]
+      const bytesNeeded = 4 * (1 + limbs.length);
+      const srcPtr = ensureScratch(memory, bytesNeeded);
+      const mem32 = new Uint32Array(memory.buffer);
+      const base = srcPtr >>> 2;
+
+      mem32[base] = limbs.length >>> 0;
+      for (let i = 0; i < limbs.length; i++) {
+        mem32[base + 1 + i] = limbs[i] >>> 0;
+      }
+
+      return bigint_from_limbs(srcPtr);
+    }
+
+    function wasmToBigint(instance, ptr) {
+      const { bigint_len, bigint_get_limb } = instance.exports;
+      if (!bigint_len || !bigint_get_limb) {
+        throw new Error('WASM module missing required exports: bigint_len, bigint_get_limb');
+      }
+
+      const len = bigint_len(ptr) >>> 0;
+      let result = 0n;
+      for (let i = 0; i < len; i++) {
+        const limb = bigint_get_limb(ptr, i) >>> 0;
+        result |= (BigInt(limb) << (BigInt(i) * 32n));
+      }
+      return result;
+    }
+
+    async function loadWasm(filename) {
+      const res = await fetch(filename);
+      if (!res.ok) throw new Error(`Failed to fetch ${filename}: ${res.status} ${res.statusText}`);
+      const bytes = await res.arrayBuffer();
+      const { instance } = await WebAssembly.instantiate(bytes);
+      return instance;
+    }
+
+    async function testModule(mod, iterations, numDigits) {
+      log('');
+      log('==================================================');
+      log(`Testing Module: ${mod.name} (${mod.filename})`);
+      log('==================================================');
+
+      let instance;
+      try {
+        instance = await loadWasm(mod.filename);
+      } catch (e) {
+        log(`File not found or failed to load: ${mod.filename} - Skipping`);
+        return null;
+      }
+
+      const { bigint_karatsuba, reset_heap } = instance.exports;
+      if (!bigint_karatsuba || !reset_heap) {
+        log('Missing required exports: bigint_karatsuba and/or reset_heap - Skipping');
+        return null;
+      }
+
+      // 1) Correctness small tests
+      log('1. Correctness Tests with Small Numbers:');
+      const smallTests = [
+        [123n, 456n, 56088n],
+        [1234n, 5678n, 7006652n],
+        [12345n, 67890n, 838102050n],
+      ];
+
+      let passed = 0;
+      let failed = 0;
+
+      for (const [a, b, expected] of smallTests) {
+        reset_heap();
+        const ptrA = bigintToWasm(instance, a);
+        const ptrB = bigintToWasm(instance, b);
+        const resultPtr = bigint_karatsuba(ptrA, ptrB);
+        const result = wasmToBigint(instance, resultPtr);
+
+        if (result === expected) {
+          passed++;
+        } else {
+          failed++;
+          log(`  ✗ ${a} × ${b}`);
+          log(`    Expected: ${expected}`);
+          log(`    Got:      ${result}`);
+        }
+      }
+      log(`  ${passed} passed, ${failed} failed`);
+
+      // 2) Large correctness test (100 digits)
+      log('2. Large Number Tests (100+ digits):');
+      const digits100_1 = '1'.repeat(100);
+      const digits100_2 = '2'.repeat(100);
+      const big1 = BigInt(digits100_1);
+      const big2 = BigInt(digits100_2);
+      const expectedLarge = big1 * big2;
+
+      reset_heap();
+      const ptr1 = bigintToWasm(instance, big1);
+      const ptr2 = bigintToWasm(instance, big2);
+      const resultPtrLarge = bigint_karatsuba(ptr1, ptr2);
+      const resultLarge = wasmToBigint(instance, resultPtrLarge);
+
+      if (resultLarge === expectedLarge) {
+        log('  ✓ Correct result for 100-digit multiplication');
+      } else {
+        log('  ✗ Incorrect result for 100-digit multiplication');
+        failed++;
+      }
+
+      // 3) Performance test using provided params
+      log(`3. Performance Test (${numDigits}+ digits):`);
+      const numA = BigInt(makeDigitString(numDigits, 0));
+      const numB = BigInt(makeDigitString(numDigits, 5));
+
+      const start = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        reset_heap();
+        const p1 = bigintToWasm(instance, numA);
+        const p2 = bigintToWasm(instance, numB);
+        bigint_karatsuba(p1, p2);
+      }
+      const totalMs = performance.now() - start;
+      const avgMs = totalMs / iterations;
+
+      log(`  Total time (${iterations} iterations): ${totalMs.toFixed(3)} ms`);
+      log(`  Average per multiplication: ${avgMs.toFixed(6)} ms`);
+
+      return { name: mod.name, filename: mod.filename, passed, failed, avgMs };
+    }
+
+    async function runAllTests() {
+      if (!('WebAssembly' in window)) {
+        setStatus('WebAssembly not supported in this browser.', 'err');
+        return;
+      }
+
+      const numDigits = Number($('numDigits').value);
+      const iterations = Number($('iterations').value);
+
+      if (!Number.isFinite(numDigits) || numDigits < 1) {
+        alert('num_digits must be a positive integer');
+        return;
+      }
+      if (!Number.isFinite(iterations) || iterations < 1) {
+        alert('iterations must be a positive integer');
+        return;
+      }
+
+      const runBtn = $('runBtn');
+      runBtn.disabled = true;
+      clearLog();
+
+    setStatus(`Running benchmarks with ${numDigits} digits...`, 'info');
+
+
+      // Baseline: JS BigInt
+      log('==================================================');
+      log('Baseline: JavaScript BigInt');
+      log('==================================================');
+
+      const jsA = BigInt(makeDigitString(numDigits, 0));
+      const jsB = BigInt(makeDigitString(numDigits, 5));
+      const jsStart = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        void (jsA * jsB);
+      }
+      const jsTotalMs = performance.now() - jsStart;
+      const jsAvgMs = jsTotalMs / iterations;
+      log(`  Average per multiplication: ${jsAvgMs.toFixed(6)} ms`);
+
+      // Shuffle modules to reduce bias
+      const mods = shuffleInPlace(MODULES.slice());
+
+      const results = [];
+      for (const mod of mods) {
+        try {
+          const r = await testModule(mod, iterations, numDigits);
+          if (r) results.push(r);
+        } catch (e) {
+          log(`Error testing ${mod.name}: ${e && e.message ? e.message : String(e)}`);
+        }
+
+        // Let the UI breathe between modules
+        await new Promise(r => setTimeout(r, 0));
+      }
+
+      log('');
+      log('==================================================');
+      log('Final Comparison Summary');
+      log('==================================================');
+      log('Module          | Status    | Avg Time (ms) | Speedup vs JS');
+      log('----------------|-----------|---------------|--------------');
+      log(`JavaScript      | OK        | ${jsAvgMs.toFixed(6).padEnd(13)} | 1.00x`);
+
+      results.sort((a, b) => a.avgMs - b.avgMs);
+      for (const r of results) {
+        const status = r.failed === 0 ? 'OK' : `FAIL(${r.failed})`;
+        const speedup = jsAvgMs / r.avgMs;
+        log(`${r.name.padEnd(15)} | ${status.padEnd(9)} | ${r.avgMs.toFixed(6).padEnd(13)} | ${speedup.toFixed(2)}x`);
+      }
+
+      setStatus('Done.', 'ok');
+      runBtn.disabled = false;
+    }
+
+    $('runBtn').addEventListener('click', () => {
+      runAllTests().catch(err => {
+        setStatus(`Error: ${err && err.message ? err.message : String(err)}`, 'err');
+        log('');
+        log(String(err && err.stack ? err.stack : err));
+        $('runBtn').disabled = false;
+      });
+    });
+
+    // Initial hint
+    clearLog();
+    log('Tip: open DevTools console for extra details.');
+  </script>
+</body>
+</html>
