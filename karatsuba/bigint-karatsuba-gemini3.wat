@@ -1,5 +1,5 @@
 (module
-  ;; 100 pages = 6.4MB. For 1000+ limbs, you might need more.
+  ;; 100 pages = 6.4MB. For 1000+ limbs, you might need more. For testing, did not reach max.
   (memory (export "memory") 200)
   
   (global $heap_ptr (mut i32) (i32.const 0))

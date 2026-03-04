@@ -4,6 +4,15 @@ const path = require('path');
 
 const ITERATIONS = 100;
 const NUM_DIGITS = 1000;
+
+function generateRandomBigInt(digits) {
+    let s = '';
+    for (let i = 0; i < digits; i++) {
+        s += Math.floor(Math.random() * 10);
+    }
+    return BigInt(s || '0');
+}
+
 // Helper to create bigint from JavaScript BigInt using WASM functions
 function bigintToWasm(wasmInstance, value) {
     const { memory, bigint_from_limbs } = wasmInstance.exports;
@@ -45,7 +54,7 @@ function wasmToBigint(wasmInstance, ptr) {
     return result;
 }
 
-async function testModule(name, filename, iterations) {
+async function testModule(name, filename, testData) {
     console.log(`\n==================================================`);
     console.log(`Testing Module: ${name} (${filename})`);
     console.log(`==================================================`);
@@ -59,7 +68,7 @@ async function testModule(name, filename, iterations) {
     const wasmBuffer = fs.readFileSync(wasmPath);
     const wasmModule = await WebAssembly.instantiate(wasmBuffer);
     const instance = wasmModule.instance;
-    const { memory, bigint_karatsuba, reset_heap } = instance.exports;
+    const { _, bigint_karatsuba, reset_heap } = instance.exports;
     
     // Test 1: Small numbers for correctness
     console.log('1. Correctness Tests with Small Numbers:');
@@ -115,32 +124,21 @@ async function testModule(name, filename, iterations) {
         failed++;
     }
 
-    // Test 3: Performance comparison with 1000+ digit numbers
-    console.log('3. Performance Test (1000+ digits):');
-    
-    let num1000Str = '';
-    let num2000Str = '';
-    for (let i = 0; i < NUM_DIGITS; i++) {
-        num1000Str += String((i % 9) + 1);
-    }
-    for (let i = 0; i < NUM_DIGITS; i++) {
-        num2000Str += String(((i + 5) % 9) + 1);
-    }
-    
-    const num1000 = BigInt(num1000Str);
-    const num2000 = BigInt(num2000Str);
+    // Test 3: Performance comparison with large numbers
+    console.log(`3. Performance Test (${NUM_DIGITS} digits):`);
     
     // WASM Karatsuba multiplication
     const wasmStart = process.hrtime.bigint();
-    for (let i = 0; i < ITERATIONS; i++) {
+    for (let i = 0; i < testData.length; i++) {
+        const [a, b] = testData[i];
         reset_heap();
-        const p1 = bigintToWasm(instance, num1000);
-        const p2 = bigintToWasm(instance, num2000);
+        const p1 = bigintToWasm(instance, a);
+        const p2 = bigintToWasm(instance, b);
         bigint_karatsuba(p1, p2);
     }
     const wasmTime = Number(process.hrtime.bigint() - wasmStart) / 1e6;
-    const avgTime = wasmTime / ITERATIONS;
-    console.log(`  Total time (${ITERATIONS} iterations): ${wasmTime.toFixed(3)} ms`);
+    const avgTime = wasmTime / testData.length;
+    console.log(`  Total time (${testData.length} iterations): ${wasmTime.toFixed(3)} ms`);
     console.log(`  Average per multiplication: ${avgTime.toFixed(6)} ms`);
 
     return {
@@ -156,16 +154,25 @@ async function runAllTests() {
     const modules = [
         { name: 'Original', filename: 'bigint-karatsuba.wasm' },
         { name: 'Schoolbook', filename: 'bigint-schoolbook.wasm' },
-        { name: 'Schoolbook Redux', filename: 'bigint-schoolbook-redux.wasm' },
         { name: 'DeepSeek', filename: 'bigint-karatsuba-deepseek.wasm' },
         { name: 'Gemini3', filename: 'bigint-karatsuba-gemini3.wasm' },
         { name: 'Qwen3 Max', filename: 'bigint-karatsuba-qwen3-max.wasm' }
     ];
 
-    // Shuffle the modules array randomly
+    // Shuffling...
     for (let i = modules.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [modules[i], modules[j]] = [modules[j], modules[i]];
+    }
+
+    // Pre-generate random test data for fair comparison
+    console.log(`Generating ${ITERATIONS} pairs of random ${NUM_DIGITS}-digit numbers...`);
+    const testData = [];
+    for (let i = 0; i < ITERATIONS; i++) {
+        testData.push([
+            generateRandomBigInt(NUM_DIGITS),
+            generateRandomBigInt(NUM_DIGITS)
+        ]);
     }
 
     // Baseline JS Performance
@@ -173,30 +180,18 @@ async function runAllTests() {
     console.log(`Baseline: JavaScript BigInt`);
     console.log(`==================================================`);
     
-    let num1000Str = '';
-    let num2000Str = '';
-    for (let i = 0; i < NUM_DIGITS; i++) {
-        num1000Str += String((i % 9) + 1);
-    }
-    for (let i = 0; i < NUM_DIGITS; i++) {
-        num2000Str += String(((i + 5) % 9) + 1);
-    }
-    const num1000 = BigInt(num1000Str);
-    const num2000 = BigInt(num2000Str);
-
     const jsStart = process.hrtime.bigint();
-    const jsIterations = ITERATIONS;
-    for (let i = 0; i < jsIterations; i++) {
-        const _ = num1000 * num2000;
+    for (const [a, b] of testData) {
+        const _ = a * b;
     }
     const jsTime = Number(process.hrtime.bigint() - jsStart) / 1e6;
-    const jsAvgTime = jsTime / jsIterations;
+    const jsAvgTime = jsTime / testData.length;
     console.log(`  Average per multiplication: ${jsAvgTime.toFixed(6)} ms`);
 
     const results = [];
     for (const mod of modules) {
         try {
-            const result = await testModule(mod.name, mod.filename, ITERATIONS);
+            const result = await testModule(mod.name, mod.filename, testData);
             if (result) results.push(result);
         } catch (e) {
             console.error(`Error testing ${mod.name}:`, e.message);
@@ -208,11 +203,8 @@ async function runAllTests() {
     console.log(`==================================================`);
     console.log(`Module          | Status | Avg Time (ms) | Speedup vs JS`);
     console.log(`----------------|--------|---------------|--------------`);
-    
     console.log(`JavaScript      | OK     | ${jsAvgTime.toFixed(6).padEnd(13)} | 1.00x`);
-
     results.sort((a, b) => a.avgTime - b.avgTime);
-
     for (const res of results) {
         const status = res.failed === 0 ? 'OK' : `FAIL(${res.failed})`;
         const speedup = jsAvgTime / res.avgTime;
