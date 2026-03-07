@@ -18,7 +18,7 @@ As shown in the log-log benchmark graph below, while Native JavaScript (V8 C++ B
 
 Both algorithms rely on WebAssembly's linear memory. To prevent `Out of Memory` (OOM) errors during heavy recursive iterations, the benchmark suite leverages a **Bump Allocator** design. Memory is allocated forward during operations, and the `heap_ptr` is dynamically exported and reset between benchmark iterations.
 
-### Schoolbook ($O(N^2)$) - Memory Allocation
+### Schoolbook O(N^2) - Memory Allocation
 
 The Schoolbook algorithm allocates aggressively across its iterations. For a $1024$-limb BigInt, a single multiplication issues over 3000 bump allocations, inflating the heap pointer by roughly ~16.7MB per multiplication.
 
@@ -52,42 +52,42 @@ end
 Note over Mem: heap_ptr reset between benchmark runs
 ```
 
-### Karatsuba ($O(N^{1.58})$) - Limb Split Logic
+### Karatsuba O(N^1.58) - Limb Split Logic
 
 The Karatsuba approach trades raw arithmetic for recursive complexity. It splits the BigInt representations (stored as an array of 32-bit limbs) exactly in half, repeatedly chunking them until hitting a small base case (where it defaults back to schoolbook).
 
 ```mermaid
 flowchart TD
-    A["BigInt A (N limbs)"] --> |"m = N/2"| A_high["A_high<br>(N-m limbs)"]
-    A --> A_low["A_low<br>(m limbs)"]
-    
-    B["BigInt B (M limbs)"] --> |"m = max(N,M)/2"| B_high["B_high<br>(M-m limbs)"]
-    B --> B_low["B_low<br>(m limbs)"]
+A["BigInt A (N limbs)"] --> |"m = N/2"| A_high["A_high (N-m limbs)"]
+A --> A_low["A_low (m limbs)"]
 
-    A_low --> |"Recursive Karatsuba"| Z0["Z0 = A_low x B_low"]
-    B_low --> Z0
-    
-    A_high --> |"Recursive Karatsuba"| Z2["Z2 = A_high x B_high"]
-    B_high --> Z2
-    
-    A_low --> SumA["Sum_A = A_low + A_high"]
-    A_high --> SumA
-    B_low --> SumB["Sum_B = B_low + B_high"]
-    B_high --> SumB
-    
-    SumA --> |"Recursive Karatsuba"| Z1_mid["Z1_mid = Sum_A x Sum_B"]
-    SumB --> Z1_mid
-    
-    Z1_mid --> Z1["Z1 = Z1_mid - Z0 - Z2"]
-    Z0 --> Z1
-    Z2 --> Z1
-    
-    Z2 --> |"Shift Left 2m"| Z2_shifted["Z2 << 2m limbs"]
-    Z1 --> |"Shift Left m"| Z1_shifted["Z1 << m limbs"]
-    
-    Z2_shifted --> Result["Result = Z2_shifted + Z1_shifted + Z0"]
-    Z1_shifted --> Result
-    Z0 --> Result
+B["BigInt B (M limbs)"] --> |"m = max(N,M)/2"| B_high["B_high (M-m limbs)"]
+B --> B_low["B_low (m limbs)"]
+
+A_low --> |"Recursive Karatsuba"| Z0["Z0 = A_low x B_low"]
+B_low --> Z0
+
+A_high --> |"Recursive Karatsuba"| Z2["Z2 = A_high x B_high"]
+B_high --> Z2
+
+A_low --> SumA["Sum_A = A_low + A_high"]
+A_high --> SumA
+B_low --> SumB["Sum_B = B_low + B_high"]
+B_high --> SumB
+
+SumA --> |"Recursive Karatsuba"| Z1_mid["Z1_mid = Sum_A x Sum_B"]
+SumB --> Z1_mid
+
+Z1_mid --> Z1["Z1 = Z1_mid - Z0 - Z2"]
+Z0 --> Z1
+Z2 --> Z1
+
+Z2 --> |"Shift Left 2m"| Z2_shifted["Z2 shifted left 2m limbs"]
+Z1 --> |"Shift Left m"| Z1_shifted["Z1 shifted left m limbs"]
+
+Z2_shifted --> Result["Result = Z2_shifted + Z1_shifted + Z0"]
+Z1_shifted --> Result
+Z0 --> Result
 ```
 
 ## How to Run
