@@ -84,17 +84,17 @@ The Schoolbook algorithm allocates aggressively across its iterations. For a $10
 
 ```mermaid
 sequenceDiagram
-    participant Mem as Linear Memory (heap_ptr)
-    participant Loop as Outer Loop (for limb in B)
+    participant Mem as Linear Memory
+    participant Loop as Outer Loop
     participant Mul as bigint_mul_limb
     participant Shift as bigint_shift_left
     participant Add as bigint_add
 
     Note over Mem: Initial: Heap resets to save-state
-    Loop->>Mem: alloc(1) -> initialize result to 0
+    Loop->>Mem: alloc(1) and init to 0
     
-    loop For each limb b_i in B (O(N) iterations)
-        Loop->>Mul: Multiply A * b_i
+    loop O(N) iterations
+        Loop->>Mul: Multiply A by b_i
         Mul->>Mem: alloc(len_A + 1)
         Mem-->>Mul: partial_ptr
         
@@ -106,10 +106,9 @@ sequenceDiagram
         Add->>Mem: alloc(max_len + 1)
         Mem-->>Add: new_result_ptr
         
-        Note over Mem: ~12KB to 24KB bumped per iteration
+        Note over Mem: Bumped ~12KB per iteration
     end
     Note over Mem: Final heap_ptr reset externally
-
 ```
 
 ### Karatsuba O(N^1.58) - Limb Split Logic
