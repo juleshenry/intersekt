@@ -84,30 +84,32 @@ The Schoolbook algorithm allocates aggressively across its iterations. For a $10
 
 ```mermaid
 sequenceDiagram
-    participant Mem as Linear Memory
-    participant Loop as Outer Loop
-    participant Mul as Multiply
-    participant Shift as Shift Left
-    participant Add as Addition
+participant Mem as Linear Memory (bump alloc)
+participant Main as bigint_mul_simple
+participant MulL as bigint_mul_limb
+participant Shl as bigint_shift_left
+participant Add as bigint_add
 
-    Note over Mem: Heap resets to save-state
-    Loop->>Mem: allocate result array
-    
-    loop N iterations
-        Loop->>Mul: multiply limb
-        Mul->>Mem: allocate partial
-        Mem-->>Mul: return pointer
-        
-        Loop->>Shift: shift partial
-        Shift->>Mem: allocate shifted
-        Mem-->>Shift: return pointer
-        
-        Loop->>Add: add to result
-        Add->>Mem: allocate new result
-        Mem-->>Add: return pointer
-    end
-    
-    Note over Mem: Final heap pointer reset
+Main->>Mem: alloc result (1 limb = 0)
+
+loop for each limb b[i]
+Main->>MulL: mul_limb(a, b[i])
+MulL->>Mem: alloc partial product
+Mem-->>MulL: ptr
+MulL-->>Main: partial
+
+Main->>Shl: shift_left(partial, i)
+Shl->>Mem: alloc shifted copy
+Mem-->>Shl: ptr
+Shl-->>Main: shifted
+
+Main->>Add: add(result, shifted)
+Add->>Mem: alloc new result
+Mem-->>Add: ptr
+Add-->>Main: result = new sum
+end
+
+Note over Mem: heap_ptr reset between benchmark runs
 ```
 
 ### Karatsuba ($O(N^{1.58})$) - Limb Split Logic
