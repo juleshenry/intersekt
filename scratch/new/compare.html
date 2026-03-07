@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WASM Mult: Timing Comparison</title>
+    <script>
+        const ciel = 10000;
+
+        function sleep(delay) {
+            var start = new Date().getTime();
+            while (new Date().getTime() < start + delay);
+        }
+        function legacyApi() {
+            console.log('Called legacy API, ', ciel, ' times.');
+            for (let i = 0; i < ciel; i++) {
+                j = i * i;
+                if (!(i%(ciel/10))) {console.log('$JavaScript',i, ' times done')}; 
+            }
+        }
+
+        function wasmCall() {
+            console.log('Called Wasm API, ', ciel, ' times.');
+            (async () => {
+                // Fetch the WebAssembly module
+                const response = await fetch('hwm.wasm');
+                const bytes = await response.arrayBuffer();
+                const { instance } = await WebAssembly.instantiate(bytes);
+                const multTwo = instance.exports.mult;
+                for (let i = 0; i < ciel; i++) {
+                    j = multTwo(i, i);
+                    if (!(i%(ciel/10))) {console.log('$Vanila Wasm:',i, ' times done')}; 
+                }
+            })();
+        }
+        function karatWasmCall() {
+            console.log('Called Karat Wasm API, ', ciel, ' times.');
+            (async () => {
+                // Fetch the WebAssembly module
+                const response = await fetch('hwm.wasm');
+                const bytes = await response.arrayBuffer();
+                const { instance } = await WebAssembly.instantiate(bytes);
+                const karatTwo = instance.exports.mult;
+                for (let i = 0; i < ciel; i++) {
+                    j = karatTwo(i, i);
+                    if (!(i%(ciel/10))) {console.log('$Karats Wasm:',i, ' times done')}; 
+                }
+            })();
+        }
+
+        function compareTiming() {
+            var startTime = performance.now();
+            legacyApi();
+            var function1Time = performance.now() - startTime;
+            
+            startTime = performance.now();
+            karatWasmCall();
+            var function3Time = performance.now() - startTime;
+            
+            startTime = performance.now();
+            wasmCall();
+            var function2Time = performance.now() - startTime;
+
+            var result = ("<p>Legacy API: " + function1Time + " milliseconds.</p>" + 
+                "<p>WASM Call: " + function2Time + " milliseconds.</p>" + 
+                "<p>Karat Wasm Call: " + function3Time + " milliseconds.</p>"
+             )
+            document.getElementById("timingResult").innerHTML = result;
+
+
+        }
+    </script>
+</head>
+<body>
+    <button onclick="compareTiming()">Compare Timing</button>
+    <p id="timingResult"></p>
+</body>
+</html>
