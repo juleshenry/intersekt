@@ -1,32 +1,17 @@
 # WASM Karatsuba vs BigInt
 
-This repo is a focused experiment to compare Karatsuba multiplication in WebAssembly against JavaScript BigInt, including multiple AI-generated WASM variants.
+![Benchmark Results](final-benchmark.jpg)
 
-## Repo Layout (What Matters)
+This repo is a focused experiment to compare Karatsuba multiplication in WebAssembly against JavaScript BigInt, mathematically demonstrating the $O(N^{1.58})$ asymptotic threshold where Karatsuba breaks away from an $O(N^2)$ Schoolbook implementation.
+
+## Repo Layout
 
 - `karatsuba/` - All WASM sources, binaries, and test harnesses.
-- `karatsuba/test-bigint.js` - Node benchmark: JS BigInt vs multiple WASM variants.
+- `karatsuba/test-bigint.js` - Node benchmark: JS BigInt vs WASM.
 - `karatsuba/test-bigint.html` - Browser benchmark with parameter controls.
-- `karatsuba/graph.html` + `karatsuba/graph.js` - Power-of-two size sweep and graph output.
-- `karatsuba/bigint-karatsuba.wat` - Baseline bigint Karatsuba implementation (WAT).
-- `karatsuba/bigint-schoolbook.wat` - Baseline O(n^2) schoolbook implementation (WAT).
-
-All legacy completion reports and scratch artifacts were removed to keep only the current experiment.
-
-## Experiment Modules (AI + Baselines)
-
-All comparison binaries live in `karatsuba/`:
-
-- `bigint-karatsuba.wasm` - Baseline bigint Karatsuba.
-- `bigint-schoolbook.wasm` - Baseline schoolbook.
-- `bigint-karatsuba-deepseek.wasm` - AI (DeepSeek) variant.
-- `bigint-karatsuba-gemini3.wasm` - AI (Gemini 3) variant.
-- `bigint-karatsuba-qwen3-max.wasm` - AI (Qwen3 Max) variant.
-
-If you add a new AI implementation, drop the `.wasm` into `karatsuba/` and add it to:
-- `karatsuba/test-bigint.js`
-- `karatsuba/test-bigint.html`
-- `karatsuba/graph.js`
+- `karatsuba/graph.html` + `karatsuba/graph.js` - Power-of-two size sweep and graph output (up to 1024 limbs).
+- `karatsuba/karatsuba.wat` - The final consolidated Karatsuba implementation (WAT).
+- `karatsuba/schoolbook.wat` - Baseline O(n^2) schoolbook implementation (WAT).
 
 ## Step-by-Step: Run the Experiment
 
@@ -39,8 +24,8 @@ node test-bigint.js
 
 What you get:
 - JS BigInt baseline time
-- Per-module correctness checks
-- Per-module average time and speedup vs JS
+- Correctness checks up to 10,000 digits
+- Average execution time across JS, Schoolbook, and Karatsuba
 
 ### 2) Browser benchmark (interactive)
 
@@ -61,12 +46,11 @@ Adjust:
 With the same server running, open:
 - `http://localhost:8000/graph.html`
 
-This runs a log-log sweep from 2^5 to 2^17 limbs and renders a downloadable JPG.
+This runs a log-log sweep from 2^1 to 2^10 limbs and dynamically renders the benchmark graph above.
 
 ## WASM Karatsuba Design Choices (BigInt)
 
 ### 1) Representation
-
 - Base: 2^32 limbs (i32 words), little-endian.
 - Layout in linear memory:
   - `[len: i32, limb0: i32, limb1: i32, ...]`
@@ -74,43 +58,93 @@ This runs a log-log sweep from 2^5 to 2^17 limbs and renders a downloadable JPG.
 Why: 2^32 matches native i32 ops and minimizes limb count vs base-10 splits.
 
 ### 2) Memory Management
-
-- Simple bump allocator with a global heap pointer.
-- `reset_heap()` exported for clean test runs.
-
-Why: predictable, simple, and avoids GC inside WASM.
+- Simple bump allocator with an exported global `heap_ptr` to avoid GC and permit precise zero-overhead loop re-execution.
+- Exported memory boundary set to 2,000 pages (~128MB) to handle recursive depth without OOMing.
 
 ### 3) Core Ops
-
 - `bigint_add` / `bigint_sub`: carry/borrow handled with i64 intermediates.
 - `bigint_mul_simple`: schoolbook base case.
 - `bigint_karatsuba`: recursive split with three multiplications.
 
-Why: Karatsuba only helps for sufficiently large operand sizes; small sizes use the simpler path.
-
 ### 4) Threshold
-
 - Base case threshold = 8 limbs (256 bits).
+- Why: balances recursion overhead and algorithmic savings.
 
-Why: balances recursion overhead and algorithmic savings; easy to retune later.
+### 5) Notes on Results
+- The mathematical divergence between $O(N^2)$ and $O(N^{1.58})$ is successfully proven locally in the WASM sandbox.
+- Native JavaScript BigInt leverages compiled C++ bindings, hardware carry flags, and dynamic FFT-based algorithms ($O(N \log N)$), ensuring it evaluates substantially faster than the sandboxed WASM implementations.
 
-### 5) Data Movement Policy
+## Algorithms & Memory Architecture
 
-- Benchmarks copy input limbs into WASM each iteration.
-- `reset_heap()` used to prevent heap growth issues.
+Both algorithms rely on WebAssembly's linear memory. To prevent `Out of Memory` (OOM) errors during heavy recursive iterations, the benchmark suite leverages a **Bump Allocator** design. Memory is allocated forward during operations, and the `heap_ptr` is dynamically exported and reset between benchmark iterations.
 
-Why: repeatable results and avoids corrupting long-running benchmarks.
+### Schoolbook ($O(N^2)$) - Memory Allocation
 
-## Notes on Results
+The Schoolbook algorithm allocates aggressively across its iterations. For a $1024$-limb BigInt, a single multiplication issues over 3000 bump allocations, inflating the heap pointer by roughly ~16.7MB per multiplication.
 
-- JS BigInt is typically faster than WASM due to V8 optimizations and native code.
-- WASM Karatsuba becomes interesting only at very large sizes, but JS still wins in practice here.
+```mermaid
+sequenceDiagram
+    participant Mem as Linear Memory (heap_ptr)
+    participant Loop as Outer Loop (for limb in B)
+    participant Mul as bigint_mul_limb
+    participant Shift as bigint_shift_left
+    participant Add as bigint_add
 
-## Add a New AI Variant
+    Note over Mem: Initial: Heap resets to save-state
+    Loop->>Mem: alloc(1) -> initialize result to 0
+    
+    loop For each limb b_i in B (O(N) iterations)
+        Loop->>Mul: Multiply A * b_i
+        Mul->>Mem: alloc(len_A + 1)
+        Mem-->>Mul: partial_ptr
+        
+        Loop->>Shift: Shift left by i limbs
+        Shift->>Mem: alloc(len_partial + i)
+        Mem-->>Shift: shifted_ptr
+        
+        Loop->>Add: result + shifted
+        Add->>Mem: alloc(max_len + 1)
+        Mem-->>Add: new_result_ptr
+        
+        Note over Mem: ~12KB to 24KB bumped per iteration
+    end
+    Note over Mem: Final heap_ptr reset externally
+```
 
-1. Place the `.wasm` file in `karatsuba/`.
-2. Update module lists in:
-   - `karatsuba/test-bigint.js`
-   - `karatsuba/test-bigint.html`
-   - `karatsuba/graph.js`
-3. Re-run the benchmarks.
+### Karatsuba ($O(N^{1.58})$) - Limb Split Logic
+
+The Karatsuba approach trades raw arithmetic for recursive complexity. It splits the BigInt representations (stored as an array of 32-bit limbs) exactly in half, repeatedly chunking them until hitting a small base case (where it defaults back to schoolbook).
+
+```mermaid
+flowchart TD
+    A["BigInt A (N limbs)"] --> |"m = N/2"| A_high["A_high\n(N-m limbs)"]
+    A --> A_low["A_low\n(m limbs)"]
+    
+    B["BigInt B (M limbs)"] --> |"m = max(N,M)/2"| B_high["B_high\n(M-m limbs)"]
+    B --> B_low["B_low\n(m limbs)"]
+
+    A_low --> |"Recursive Karatsuba"| Z0["Z0 = A_low × B_low"]
+    B_low --> Z0
+    
+    A_high --> |"Recursive Karatsuba"| Z2["Z2 = A_high × B_high"]
+    B_high --> Z2
+    
+    A_low --> SumA["Sum_A = A_low + A_high"]
+    A_high --> SumA
+    B_low --> SumB["Sum_B = B_low + B_high"]
+    B_high --> SumB
+    
+    SumA --> |"Recursive Karatsuba"| Z1_mid["Z1_mid = Sum_A × Sum_B"]
+    SumB --> Z1_mid
+    
+    Z1_mid --> Z1["Z1 = Z1_mid - Z0 - Z2"]
+    Z0 --> Z1
+    Z2 --> Z1
+    
+    Z2 --> |"Shift Left 2m"| Z2_shifted["Z2 << 2m limbs"]
+    Z1 --> |"Shift Left m"| Z1_shifted["Z1 << m limbs"]
+    
+    Z2_shifted --> Result["Result = Z2_shifted + Z1_shifted + Z0"]
+    Z1_shifted --> Result
+    Z0 --> Result
+```
