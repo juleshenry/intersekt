@@ -78,7 +78,7 @@ Why: 2^32 matches native i32 ops and minimizes limb count vs base-10 splits.
 
 Both algorithms rely on WebAssembly's linear memory. To prevent `Out of Memory` (OOM) errors during heavy recursive iterations, the benchmark suite leverages a **Bump Allocator** design. Memory is allocated forward during operations, and the `heap_ptr` is dynamically exported and reset between benchmark iterations.
 
-### Schoolbook ($O(N^2)$) - Memory Allocation
+### Schoolbook O(N²) - Memory Allocation
 
 The Schoolbook algorithm allocates aggressively across its iterations. For a $1024$-limb BigInt, a single multiplication issues over 3000 bump allocations, inflating the heap pointer by roughly ~16.7MB per multiplication.
 
@@ -109,19 +109,20 @@ sequenceDiagram
         Note over Mem: ~12KB to 24KB bumped per iteration
     end
     Note over Mem: Final heap_ptr reset externally
+
 ```
 
-### Karatsuba ($O(N^{1.58})$) - Limb Split Logic
+### Karatsuba O(N^1.58) - Limb Split Logic
 
 The Karatsuba approach trades raw arithmetic for recursive complexity. It splits the BigInt representations (stored as an array of 32-bit limbs) exactly in half, repeatedly chunking them until hitting a small base case (where it defaults back to schoolbook).
 
 ```mermaid
 flowchart TD
-    A["BigInt A (N limbs)"] --> |"m = N/2"| A_high["A_high\n(N-m limbs)"]
-    A --> A_low["A_low\n(m limbs)"]
+    A["BigInt A (N limbs)"] --> |"m = N/2"| A_high["A_high<br>(N-m limbs)"]
+    A --> A_low["A_low<br>(m limbs)"]
     
-    B["BigInt B (M limbs)"] --> |"m = max(N,M)/2"| B_high["B_high\n(M-m limbs)"]
-    B --> B_low["B_low\n(m limbs)"]
+    B["BigInt B (M limbs)"] --> |"m = max(N,M)/2"| B_high["B_high<br>(M-m limbs)"]
+    B --> B_low["B_low<br>(m limbs)"]
 
     A_low --> |"Recursive Karatsuba"| Z0["Z0 = A_low × B_low"]
     B_low --> Z0
