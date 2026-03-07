@@ -3,7 +3,7 @@ const path = require('path');
 
 
 const ITERATIONS = 100;
-const NUM_DIGITS = 1000;
+const NUM_DIGITS = 10000;
 
 function generateRandomBigInt(digits) {
     let s = '';
@@ -152,11 +152,8 @@ async function testModule(name, filename, testData) {
 
 async function runAllTests() {
     const modules = [
-        { name: 'Original', filename: 'bigint-karatsuba.wasm' },
-        { name: 'Schoolbook', filename: 'bigint-schoolbook.wasm' },
-        { name: 'DeepSeek', filename: 'bigint-karatsuba-deepseek.wasm' },
-        { name: 'Gemini3', filename: 'bigint-karatsuba-gemini3.wasm' },
-        { name: 'Qwen3 Max', filename: 'bigint-karatsuba-qwen3-max.wasm' }
+        { name: 'Schoolbook', filename: 'schoolbook.wasm' },
+        { name: 'Karatsuba', filename: 'karatsuba.wasm' }
     ];
 
     // Shuffling...
@@ -181,9 +178,11 @@ async function runAllTests() {
     console.log(`==================================================`);
     
     const jsStart = process.hrtime.bigint();
+    let dummy = 0n;
     for (const [a, b] of testData) {
-        const _ = a * b;
+        dummy ^= (a * b);
     }
+    if (dummy === 1n) console.log("ignore");
     const jsTime = Number(process.hrtime.bigint() - jsStart) / 1e6;
     const jsAvgTime = jsTime / testData.length;
     console.log(`  Average per multiplication: ${jsAvgTime.toFixed(6)} ms`);

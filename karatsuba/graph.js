@@ -14,18 +14,14 @@
 	// --- Configuration ---
 
 	const MODULES = [
-		{ name: 'Original', filename: 'bigint-karatsuba.wasm' },
-		{ name: 'Schoolbook', filename: 'bigint-schoolbook.wasm' },
-		{ name: 'Schoolbook Redux', filename: 'bigint-schoolbook-redux.wasm' },
-		{ name: 'DeepSeek', filename: 'bigint-karatsuba-deepseek.wasm' },
-		{ name: 'Gemini3', filename: 'bigint-karatsuba-gemini3.wasm' },
-		{ name: 'Qwen3 Max', filename: 'bigint-karatsuba-qwen3-max.wasm' },
+		{ name: 'Schoolbook (O(N²))', filename: 'schoolbook.wasm' },
+		{ name: 'Karatsuba (O(N^1.58))', filename: 'karatsuba.wasm' },
 	];
 
-	const MIN_POW = 5;   // 2^5 = 32 limbs
-	const MAX_POW = 17;  // 2^17 = 131,072 limbs
-	const ITERATIONS = 128;
-	const TIMEOUT_MS = 5000; // Stop if a single size takes > 5s (prevent browser hang)
+	const MIN_POW = 1;   // 2^1 = 2 limbs
+	const MAX_POW = 10;  // 2^10 = 1024 limbs (well past 10^96)
+	const ITERATIONS = 100;
+	const TIMEOUT_MS = 30000; // Stop if a single size takes > 30s
 
 	const COLORS = [
 		'#007bff', // Blue
@@ -183,11 +179,17 @@
 		for (const item of testData) {
 			await new Promise(r => setTimeout(r, 10));
 			try {
+				let dummy = 0n;
 				const start = performance.now();
 				for (let i = 0; i < ITERATIONS; i++) {
-					void (item.biA * item.biB);
+					// We must accumulate or use the result, otherwise V8's JIT 
+					// will see "dead code" and optimize the loop away entirely!
+					dummy ^= (item.biA * item.biB);
 				}
 				const time = performance.now() - start;
+				// Prevent dummy from being optimized away
+				if (dummy === 1n) console.log("ignore"); 
+
 				jsRes.data.push({ x: item.pow, y: time });
 				
 				if (time > TIMEOUT_MS) throw new Error('Timeout');
@@ -218,27 +220,21 @@
 					// Check if we should even try (if previous failed)
 					if (res.failure) break;
 
-					const start = performance.now();
+					// Pre-allocate inputs ONCE
+					reset_heap();
+					const pA = copyLimbsToWasm(mod.instance, item.limbsA);
+					const pB = copyLimbsToWasm(mod.instance, item.limbsB);
 					
+					// Save heap pointer so we can reset it to just after pA and pB were allocated
+					const saved_heap_ptr = mod.instance.exports.heap_ptr.value;
+					
+					const start = performance.now();
 					// Run iterations
 					for (let k = 0; k < ITERATIONS; k++) {
-						reset_heap();
-						// Note: We copy inputs every time or once? 
-						// Realistically, allocation is part of the cost if not pre-allocated.
-						// But to be fair to the algo, we should probably include the copy 
-						// OR pre-allocate. The previous bench included copy. 
-						// Let's include copy to be safe against heap corruption, 
-						// but it penalizes WASM. 
-						// However, `bigint_from_limbs` allocates in the WASM heap.
-						// If we don't reset_heap, we run out of memory.
-						// If we reset_heap, we must copy again.
-						// So copy is necessary.
-						
-						const pA = copyLimbsToWasm(mod.instance, item.limbsA);
-						const pB = copyLimbsToWasm(mod.instance, item.limbsB);
+						// Reset heap to just after inputs to avoid OOM, but keep inputs alive
+						mod.instance.exports.heap_ptr.value = saved_heap_ptr;
 						bigint_karatsuba(pA, pB);
 					}
-					
 					const time = performance.now() - start;
 					res.data.push({ x: item.pow, y: time });
 
