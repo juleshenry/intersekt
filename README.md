@@ -78,7 +78,7 @@ Why: 2^32 matches native i32 ops and minimizes limb count vs base-10 splits.
 
 Both algorithms rely on WebAssembly's linear memory. To prevent `Out of Memory` (OOM) errors during heavy recursive iterations, the benchmark suite leverages a **Bump Allocator** design. Memory is allocated forward during operations, and the `heap_ptr` is dynamically exported and reset between benchmark iterations.
 
-### Schoolbook O(N²) - Memory Allocation
+### Schoolbook ($O(N^2)$) - Memory Allocation
 
 The Schoolbook algorithm allocates aggressively across its iterations. For a $1024$-limb BigInt, a single multiplication issues over 3000 bump allocations, inflating the heap pointer by roughly ~16.7MB per multiplication.
 
@@ -110,7 +110,7 @@ sequenceDiagram
     Note over Mem: Final heap pointer reset
 ```
 
-### Karatsuba O(N^1.58) - Limb Split Logic
+### Karatsuba ($O(N^{1.58})$) - Limb Split Logic
 
 The Karatsuba approach trades raw arithmetic for recursive complexity. It splits the BigInt representations (stored as an array of 32-bit limbs) exactly in half, repeatedly chunking them until hitting a small base case (where it defaults back to schoolbook).
 
@@ -122,10 +122,10 @@ flowchart TD
     B["BigInt B (M limbs)"] --> |"m = max(N,M)/2"| B_high["B_high<br>(M-m limbs)"]
     B --> B_low["B_low<br>(m limbs)"]
 
-    A_low --> |"Recursive Karatsuba"| Z0["Z0 = A_low × B_low"]
+    A_low --> |"Recursive Karatsuba"| Z0["Z0 = A_low x B_low"]
     B_low --> Z0
     
-    A_high --> |"Recursive Karatsuba"| Z2["Z2 = A_high × B_high"]
+    A_high --> |"Recursive Karatsuba"| Z2["Z2 = A_high x B_high"]
     B_high --> Z2
     
     A_low --> SumA["Sum_A = A_low + A_high"]
@@ -133,7 +133,7 @@ flowchart TD
     B_low --> SumB["Sum_B = B_low + B_high"]
     B_high --> SumB
     
-    SumA --> |"Recursive Karatsuba"| Z1_mid["Z1_mid = Sum_A × Sum_B"]
+    SumA --> |"Recursive Karatsuba"| Z1_mid["Z1_mid = Sum_A x Sum_B"]
     SumB --> Z1_mid
     
     Z1_mid --> Z1["Z1 = Z1_mid - Z0 - Z2"]
