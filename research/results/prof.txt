@@ -1,0 +1,3 @@
+n=4096 bits=20 N=2^14 full=0.234 load=0.026 fwd=0.089 pointwise=0.015 inv=0.038 extract=0.027 residues=0.020
+n=65536 bits=19 N=2^18 full=4.572 load=0.429 fwd=1.935 pointwise=0.238 inv=0.866 extract=0.462 residues=0.323
+n=1048576 bits=17 N=2^22 full=90.110 load=7.620 fwd=41.399 pointwise=3.816 inv=18.924 extract=8.286 residues=5.213
